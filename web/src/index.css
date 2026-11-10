@@ -1,0 +1,25 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #1a1a1a;
+  background: #fafafa;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color: #ececec;
+    background: #161616;
+  }
+}
+
+body {
+  margin: 0;
+}
+
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 16px;
+}
+
+.ok { color: #2e8b57; }
+.down { color: #c0392b; }

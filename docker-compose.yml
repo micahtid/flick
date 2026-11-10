@@ -1,0 +1,94 @@
+# `docker compose up --build` starts the Phase 1 stack (db, api, nginx).
+# `docker compose --profile full up --build` starts all 14 containers.
+
+x-storage: &storage
+  build: ./storage
+  profiles: [full]
+
+x-worker: &worker
+  build: ./worker
+  profiles: [full]
+  depends_on: [queue]
+
+services:
+  # Phase 1
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: flick
+    ports: ["5432:5432"]
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+
+  api:
+    build: ./api
+    environment:
+      PORT: "8080"
+      DATABASE_URL: postgres://postgres:flick@db:5432/postgres?sslmode=disable
+    ports: ["8080:8080"]
+    volumes:
+      - uploads:/data
+    depends_on: [db]
+
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    ports: ["80:80"]
+    depends_on: [api]
+
+  # Later phases
+  redis:
+    image: redis:7
+    profiles: [full]
+    ports: ["6379:6379"]
+
+  queue:
+    build: ./queue
+    profiles: [full]
+    ports: ["8081:8081"]
+
+  worker1: *worker
+  worker2: *worker
+
+  cache:
+    build: ./cache
+    profiles: [full]
+    ports: ["8082:8082"]
+
+  ingest:
+    build: ./ingest
+    profiles: [full]
+    ports: ["1935:1935"]
+
+  node1:
+    <<: *storage
+    environment: { NODE_ID: node1, PORT: "9001" }
+    ports: ["9001:9001"]
+  node2:
+    <<: *storage
+    environment: { NODE_ID: node2, PORT: "9002" }
+    ports: ["9002:9002"]
+  node3:
+    <<: *storage
+    environment: { NODE_ID: node3, PORT: "9003" }
+    ports: ["9003:9003"]
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    profiles: [full]
+    ports: ["9090:9090"]
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    profiles: [full]
+    ports: ["3001:3000"]  # 3000 is often taken on this machine
+    volumes:
+      - ./monitoring/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
+    depends_on: [prometheus]
+
+volumes:
+  dbdata:
+  uploads:
