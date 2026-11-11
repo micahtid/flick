@@ -387,7 +387,7 @@
 
   <h3>Services</h3>
   <ul>
-    <li><b>API Gateway</b> handles accounts, uploads, video details, playlists and chat. It saves records in Postgres and Redis, sends uploaded chunks to the chunk store, and adds conversion jobs to the queue. We write it.</li>
+    <li><b>API Gateway</b> handles uploads, video details, playlists and chat. It saves records in Postgres and Redis, sends uploaded chunks to the chunk store, and adds conversion jobs to the queue. We write it.</li>
     <li><b>Job Queue</b> holds conversion jobs and hands each one to a single worker. If a worker goes quiet, the job goes back on the list. When too many jobs are waiting, it refuses new ones until the line shrinks. We write it.</li>
     <li><b>Worker 1 and Worker 2</b> are two copies of the same program, each with FFmpeg installed. A worker claims a job, reads the original video from the chunk store, converts it, and writes the segments back. Adding more copies converts more videos at once. We write them.</li>
     <li><b>Edge Cache</b> keeps recently watched segments in memory. When a segment is missing, it fetches it from the chunk store and keeps a copy for the next viewer. We write it.</li>
@@ -396,7 +396,7 @@
   <h3>Data</h3>
   <ul>
     <li><b>Postgres</b> stores users, videos, comments, and the list of chunks that make up each file. It is ready made.</li>
-    <li><b>Redis</b> stores logins and live view counts, and it passes chat messages between copies of the API gateway. It is ready made.</li>
+    <li><b>Redis</b> stores live view counts, and it passes chat messages between copies of the API gateway. It is ready made.</li>
   </ul>
 
   <h3>Storage</h3>
