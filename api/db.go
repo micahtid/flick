@@ -14,12 +14,13 @@ import (
 )
 
 // schema creates the videos table. IF NOT EXISTS makes it safe to run on every
-// start. Each row is one video, and status is always "ready".
+// start. Each row is one video. Its status is "processing" until a worker has
+// converted the file, then "ready".
 const schema = `
 CREATE TABLE IF NOT EXISTS videos (
   id         UUID PRIMARY KEY,
   title      TEXT NOT NULL,
-  status     TEXT NOT NULL DEFAULT 'ready',
+  status     TEXT NOT NULL DEFAULT 'processing',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 )`
 
@@ -87,19 +88,29 @@ type videoStore struct {
 	db *pgxpool.Pool
 }
 
-// Create adds a video and returns it, including the status and upload time
-// that Postgres fills in.
+// Create adds a video with the status "processing" and returns it, including
+// the upload time that Postgres fills in.
 func (s *videoStore) Create(ctx context.Context, id uuid.UUID, title string) (Video, error) {
 	v := Video{ID: id, Title: title}
 	// $1 and $2 are placeholders that Postgres fills with id and title. Passing
 	// values this way, never pasting them into the SQL text, prevents SQL
 	// injection. RETURNING sends back the columns Postgres filled in, and Scan
 	// copies them into v.
+	//
+	// The status is set here, not left to the table's default, because a table
+	// made in Phase 1 still has the old default of "ready".
 	err := s.db.QueryRow(ctx,
-		`INSERT INTO videos (id, title) VALUES ($1, $2) RETURNING status, created_at`,
+		`INSERT INTO videos (id, title, status) VALUES ($1, $2, 'processing') RETURNING status, created_at`,
 		id, title,
 	).Scan(&v.Status, &v.CreatedAt)
 	return v, err
+}
+
+// Delete removes a video's row. It's used to undo an upload that couldn't be
+// queued for converting.
+func (s *videoStore) Delete(ctx context.Context, id uuid.UUID) error {
+	_, err := s.db.Exec(ctx, `DELETE FROM videos WHERE id = $1`, id)
+	return err
 }
 
 // List returns every video, newest first.

@@ -1,6 +1,6 @@
 // Package main is the Flick API. It saves uploaded videos, records them in
-// Postgres, and serves them back. Nginx forwards every /api request here with
-// the /api part removed.
+// Postgres, asks the queue to convert them, and serves them back. Nginx
+// forwards every /api request here with the /api part removed.
 package main
 
 import (
@@ -33,6 +33,7 @@ func run() error {
 	// Settings from environment variables, set in docker-compose.yml.
 	port := getenv("PORT", "8080")
 	dataDir := getenv("DATA_DIR", "/data") // This is where uploaded files are saved.
+	queueURL := getenv("QUEUE_URL", "http://queue:8081")
 
 	// Make sure the folder exists. 0o755 lets everyone read it but only this
 	// program write to it.
@@ -46,9 +47,13 @@ func run() error {
 	}
 	defer db.Close()
 
+	// Give up on a queue request after 10 seconds, so a stuck queue can't hold
+	// an upload open forever.
+	jobs := &queueClient{url: queueURL, http: &http.Client{Timeout: 10 * time.Second}}
+
 	srv := &http.Server{
 		Addr:    ":" + port, // ":8080" means port 8080 on every network interface.
-		Handler: newServer(&videoStore{db: db}, dataDir).routes(),
+		Handler: newServer(&videoStore{db: db}, jobs, dataDir).routes(),
 		// Drop clients that take over 10 seconds to send request headers. There
 		// is no limit on the whole request, since uploads can take minutes.
 		ReadHeaderTimeout: 10 * time.Second,

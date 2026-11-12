@@ -14,6 +14,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -32,14 +33,35 @@ func (f *fakeRepo) Create(_ context.Context, id uuid.UUID, title string) (Video,
 	if f.createErr != nil {
 		return Video{}, f.createErr
 	}
-	v := Video{ID: id, Title: title, Status: "ready", CreatedAt: time.Now()}
+	v := Video{ID: id, Title: title, Status: "processing", CreatedAt: time.Now()}
 	f.videos = append([]Video{v}, f.videos...)
 	return v, nil
+}
+
+// Delete removes the video with that ID, if there is one.
+func (f *fakeRepo) Delete(_ context.Context, id uuid.UUID) error {
+	f.videos = slices.DeleteFunc(f.videos, func(v Video) bool { return v.ID == id })
+	return nil
 }
 
 // List returns a copy, so tests can't change the fake's data by accident.
 func (f *fakeRepo) List(context.Context) ([]Video, error) {
 	return append([]Video{}, f.videos...), nil
+}
+
+// fakeQueue stands in for the job queue and records each video it's asked to
+// convert. Set err to make Add fail.
+type fakeQueue struct {
+	added []uuid.UUID
+	err   error
+}
+
+func (f *fakeQueue) Add(_ context.Context, videoID uuid.UUID) error {
+	if f.err != nil {
+		return f.err
+	}
+	f.added = append(f.added, videoID)
+	return nil
 }
 
 // formPart is one field of a test form. "file" is sent as a file, and any
@@ -73,13 +95,15 @@ func multipartBody(t *testing.T, parts ...formPart) (*bytes.Buffer, string) {
 	return &buf, mw.FormDataContentType()
 }
 
-// newTestServer makes a server with an empty fake database and an empty
-// folder. t.TempDir is deleted automatically when the test ends.
-func newTestServer(t *testing.T) (*server, *fakeRepo, http.Handler) {
+// newTestServer makes a server with an empty fake database, an empty fake
+// queue and an empty folder. t.TempDir is deleted automatically when the test
+// ends.
+func newTestServer(t *testing.T) (*server, *fakeRepo, *fakeQueue, http.Handler) {
 	t.Helper()
 	repo := &fakeRepo{}
-	s := newServer(repo, t.TempDir())
-	return s, repo, s.routes()
+	jobs := &fakeQueue{}
+	s := newServer(repo, jobs, t.TempDir())
+	return s, repo, jobs, s.routes()
 }
 
 // upload sends POST /videos straight to the handler, with no real network.
@@ -102,9 +126,10 @@ func dirEntries(t *testing.T, dir string) int {
 	return len(entries)
 }
 
-// A good upload replies 201, saves the file, and stores the trimmed title.
+// A good upload replies 201, saves the file, stores the trimmed title, and
+// adds a job to convert the video.
 func TestCreateVideo(t *testing.T) {
-	s, repo, h := newTestServer(t)
+	s, repo, jobs, h := newTestServer(t)
 	body, ct := multipartBody(t, formPart{"title", "  My clip  "}, formPart{"file", "fake video bytes"})
 
 	rec := upload(h, body, ct)
@@ -119,8 +144,14 @@ func TestCreateVideo(t *testing.T) {
 	if got.Title != "My clip" {
 		t.Errorf("title = %q, want trimmed %q", got.Title, "My clip")
 	}
+	if got.Status != "processing" {
+		t.Errorf("status = %q, want processing", got.Status)
+	}
 	if len(repo.videos) != 1 {
 		t.Fatalf("repo has %d videos, want 1", len(repo.videos))
+	}
+	if len(jobs.added) != 1 || jobs.added[0] != got.ID {
+		t.Errorf("queued videos = %v, want [%s]", jobs.added, got.ID)
 	}
 
 	data, err := os.ReadFile(filepath.Join(s.dataDir, got.ID.String()+".mp4"))
@@ -147,7 +178,7 @@ func TestCreateVideoRejectsBadInput(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s, repo, h := newTestServer(t)
+			s, repo, _, h := newTestServer(t)
 			body, ct := multipartBody(t, tt.parts...)
 
 			rec := upload(h, body, ct)
@@ -166,7 +197,7 @@ func TestCreateVideoRejectsBadInput(t *testing.T) {
 
 // A body that isn't a form at all replies 400.
 func TestCreateVideoRejectsNonMultipart(t *testing.T) {
-	_, _, h := newTestServer(t)
+	_, _, _, h := newTestServer(t)
 	rec := upload(h, bytes.NewBufferString("{}"), "application/json")
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, want 400", rec.Code)
@@ -175,7 +206,7 @@ func TestCreateVideoRejectsNonMultipart(t *testing.T) {
 
 // If the database fails after the file is saved, the file is deleted.
 func TestCreateVideoRemovesFileWhenDatabaseFails(t *testing.T) {
-	s, repo, h := newTestServer(t)
+	s, repo, _, h := newTestServer(t)
 	repo.createErr = errors.New("db down")
 	body, ct := multipartBody(t, formPart{"title", "t"}, formPart{"file", "x"})
 
@@ -188,9 +219,39 @@ func TestCreateVideoRemovesFileWhenDatabaseFails(t *testing.T) {
 	}
 }
 
+// If the queue fails, the upload is undone: no row and no file are left. A
+// full queue replies 503 so the uploader knows to try again later.
+func TestCreateVideoUndoesUploadWhenQueueFails(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want int
+	}{
+		{"queue full", errQueueFull, http.StatusServiceUnavailable},
+		{"queue down", errors.New("connection refused"), http.StatusInternalServerError},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s, repo, jobs, h := newTestServer(t)
+			jobs.err = tt.err
+			body, ct := multipartBody(t, formPart{"title", "t"}, formPart{"file", "x"})
+
+			if rec := upload(h, body, ct); rec.Code != tt.want {
+				t.Errorf("status = %d, want %d", rec.Code, tt.want)
+			}
+			if len(repo.videos) != 0 {
+				t.Errorf("repo has %d videos, want 0", len(repo.videos))
+			}
+			if n := dirEntries(t, s.dataDir); n != 0 {
+				t.Errorf("data dir has %d files, want 0", n)
+			}
+		})
+	}
+}
+
 // An empty list is [] (not null), and videos come newest first.
 func TestListVideos(t *testing.T) {
-	_, repo, h := newTestServer(t)
+	_, repo, _, h := newTestServer(t)
 
 	get := func() *httptest.ResponseRecorder {
 		rec := httptest.NewRecorder()
@@ -214,12 +275,13 @@ func TestListVideos(t *testing.T) {
 	}
 }
 
-// File serving handles range requests (used for seeking), sends the video
-// type, and replies 400 for a bad ID and 404 for a missing file.
+// File serving sends the converted copy, handles range requests (used for
+// seeking), sends the video type, and replies 400 for a bad ID and 404 for a
+// missing file.
 func TestServeVideoFile(t *testing.T) {
-	s, _, h := newTestServer(t)
+	s, _, _, h := newTestServer(t)
 	id := uuid.New()
-	if err := os.WriteFile(s.videoPath(id), []byte("0123456789"), 0o644); err != nil {
+	if err := os.WriteFile(s.convertedPath(id), []byte("0123456789"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

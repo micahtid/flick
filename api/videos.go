@@ -29,18 +29,26 @@ const (
 // is the real one, and the tests use a fake that keeps videos in memory.
 type videoRepo interface {
 	Create(ctx context.Context, id uuid.UUID, title string) (Video, error)
+	Delete(ctx context.Context, id uuid.UUID) error
 	List(ctx context.Context) ([]Video, error)
 }
 
-// server holds what every handler needs: the database and the folder where
-// video files live.
+// jobQueue lists the queue actions the handlers need. queueClient in queue.go
+// is the real one, and the tests use a fake.
+type jobQueue interface {
+	Add(ctx context.Context, videoID uuid.UUID) error
+}
+
+// server holds what every handler needs: the database, the job queue, and the
+// folder where video files live.
 type server struct {
 	videos  videoRepo
+	jobs    jobQueue
 	dataDir string
 }
 
-func newServer(videos videoRepo, dataDir string) *server {
-	return &server{videos: videos, dataDir: dataDir}
+func newServer(videos videoRepo, jobs jobQueue, dataDir string) *server {
+	return &server{videos: videos, jobs: jobs, dataDir: dataDir}
 }
 
 // routes connects each request type and path to its handler. {id} matches any
@@ -62,7 +70,8 @@ func (s *server) health(w http.ResponseWriter, _ *http.Request) {
 // createVideo handles an upload. Browsers send files as a "multipart form": a
 // body split into parts, here a "title" part and a "file" part. The file is
 // written to disk piece by piece as it arrives, so even a 2 GB upload uses
-// little memory.
+// little memory. Converting the file takes minutes, so that's left to a
+// worker, and the reply is sent without waiting for it.
 func (s *server) createVideo(w http.ResponseWriter, r *http.Request) {
 	// Stop reading once the body passes the limit.
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadBytes)
@@ -79,12 +88,23 @@ func (s *server) createVideo(w http.ResponseWriter, r *http.Request) {
 	var title string
 	var gotFile bool
 
-	// If anything fails after the file is saved, delete it, so failed uploads
-	// leave nothing behind. defer runs this when the function returns.
-	committed := false
+	// If anything fails after the file is saved, delete the file and the row,
+	// so failed uploads leave nothing behind. defer runs this when the function
+	// returns.
+	var rowAdded, committed bool
 	defer func() {
-		if gotFile && !committed {
+		if committed {
+			return
+		}
+		if gotFile {
 			os.Remove(path)
+		}
+		if rowAdded {
+			// WithoutCancel keeps the delete going even if the client has hung
+			// up, which cancels r.Context().
+			if err := s.videos.Delete(context.WithoutCancel(r.Context()), id); err != nil {
+				log.Printf("remove video %s: %v", id, err)
+			}
 		}
 	}()
 
@@ -127,10 +147,24 @@ func (s *server) createVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Add the database row. Only once this works is the file kept.
+	// Add the database row, then a job to convert the file. Only once both
+	// work is the upload kept. The row comes first so it already exists when a
+	// worker finishes the job and marks it ready.
 	video, err := s.videos.Create(r.Context(), id, title)
 	if err != nil {
 		internalError(w, "save video", err)
+		return
+	}
+	rowAdded = true
+
+	if err := s.jobs.Add(r.Context(), id); err != nil {
+		// When the queue is full, ask the client to try again later. 503 means
+		// "Service Unavailable".
+		if errors.Is(err, errQueueFull) {
+			http.Error(w, "busy, try again later", http.StatusServiceUnavailable)
+		} else {
+			internalError(w, "add job", err)
+		}
 		return
 	}
 	committed = true
@@ -148,9 +182,10 @@ func (s *server) listVideos(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, videos)
 }
 
-// serveVideoFile sends a video's file. http.ServeFile also handles "range
-// requests", where the browser asks for just one slice of the file. That's
-// what lets you jump to any point in the video.
+// serveVideoFile sends a video's converted 720p file. It replies 404 until a
+// worker has made it. http.ServeFile also handles "range requests", where the
+// browser asks for just one slice of the file. That's what lets you jump to
+// any point in the video.
 func (s *server) serveVideoFile(w http.ResponseWriter, r *http.Request) {
 	// Only accept a real UUID. This also blocks tricks like "../../etc/passwd"
 	// that try to read files outside the data folder.
@@ -159,12 +194,18 @@ func (s *server) serveVideoFile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid video id", http.StatusBadRequest)
 		return
 	}
-	http.ServeFile(w, r, s.videoPath(id))
+	http.ServeFile(w, r, s.convertedPath(id))
 }
 
-// videoPath is where a video's file is saved, such as /data/<id>.mp4.
+// videoPath is where an uploaded file is saved, such as /data/<id>.mp4.
 func (s *server) videoPath(id uuid.UUID) string {
 	return filepath.Join(s.dataDir, id.String()+".mp4")
+}
+
+// convertedPath is where a worker saves the 720p copy, such as
+// /data/<id>_720p.mp4.
+func (s *server) convertedPath(id uuid.UUID) string {
+	return filepath.Join(s.dataDir, id.String()+"_720p.mp4")
 }
 
 // badRequest is an error caused by bad input from the client. uploadError
