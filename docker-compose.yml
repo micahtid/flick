@@ -1,14 +1,10 @@
-# `docker compose up --build` starts the Phase 1 stack (db, api, nginx).
-# `docker compose --profile full up --build` starts all 14 containers.
+# `docker compose up --build` starts the Phase 2 stack (db, api, queue,
+# worker, nginx). Add `--scale worker=2` to run two workers.
+# `docker compose --profile full up --build` starts all 13 containers.
 
 x-storage: &storage
   build: ./storage
   profiles: [full]
-
-x-worker: &worker
-  build: ./worker
-  profiles: [full]
-  depends_on: [queue]
 
 services:
   # Phase 1
@@ -25,10 +21,11 @@ services:
     environment:
       PORT: "8080"
       DATABASE_URL: postgres://postgres:flick@db:5432/postgres?sslmode=disable
+      QUEUE_URL: http://queue:8081
     ports: ["8080:8080"]
     volumes:
       - uploads:/data
-    depends_on: [db]
+    depends_on: [db, queue]
 
   nginx:
     build:
@@ -37,19 +34,31 @@ services:
     ports: ["80:80"]
     depends_on: [api]
 
+  # Phase 2
+  queue:
+    build: ./queue
+    environment:
+      DATABASE_URL: postgres://postgres:flick@db:5432/postgres?sslmode=disable
+    ports: ["8081:8081"]
+    depends_on: [db]
+
+  # One service, so Compose can start as many copies as `--scale` asks for.
+  # Each copy shares the uploads volume with the API, so it can read uploads
+  # and save converted files next to them.
+  worker:
+    build: ./worker
+    environment:
+      QUEUE_URL: http://queue:8081
+      DATABASE_URL: postgres://postgres:flick@db:5432/postgres?sslmode=disable
+    volumes:
+      - uploads:/data
+    depends_on: [queue, db]
+
   # Later phases
   redis:
     image: redis:7
     profiles: [full]
     ports: ["6379:6379"]
-
-  queue:
-    build: ./queue
-    profiles: [full]
-    ports: ["8081:8081"]
-
-  worker1: *worker
-  worker2: *worker
 
   cache:
     build: ./cache
