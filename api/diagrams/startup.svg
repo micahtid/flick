@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1228 196" width="1228" height="196" role="img" aria-label="How the API starts">
+  <style>
+    text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 14px; fill: #1f2328; text-anchor: middle; dominant-baseline: central; }
+    .sub { font-size: 12px; fill: #57606a; }
+    .folder { font-size: 13px; font-weight: 600; fill: #57606a; text-anchor: start; }
+    .web { fill: #ffe3c4; } .p-web { fill: #fff6ec; }
+    .nginx { fill: #cdeee8; } .p-nginx { fill: #effaf8; }
+    .api { fill: #d8e6ff; } .p-api { fill: #f2f6ff; }
+    .queue { fill: #e5dbff; } .p-queue { fill: #f7f3ff; }
+    .worker { fill: #d3efdc; } .p-worker { fill: #f0f9f3; }
+    .ext { fill: #eaeef2; } .p-ext { fill: #f6f8fa; }
+    .ln { fill: none; stroke: #6e7781; stroke-width: 1.6; stroke-linecap: round; }
+    .head { fill: #6e7781; }
+    @media (prefers-color-scheme: dark) {
+      text { fill: #f0f6fc; }
+      .sub, .folder { fill: #c9d1d9; }
+      .web { fill: #6b4e30; } .p-web { fill: #3a2e22; }
+      .nginx { fill: #2f6158; } .p-nginx { fill: #243b38; }
+      .api { fill: #34507e; } .p-api { fill: #263147; }
+      .queue { fill: #4f4180; } .p-queue { fill: #312a47; }
+      .worker { fill: #326343; } .p-worker { fill: #253a2d; }
+      .ext { fill: #3d444d; } .p-ext { fill: #30363d; }
+      .ln { stroke: #a0a8b0; }
+      .head { fill: #a0a8b0; }
+    }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path class="head" d="M1 1.5 L9 5 L1 8.5 Q2.6 5 1 1.5 Z"/>
+    </marker>
+  </defs>
+
+  <!-- Lines. Each one is a single straight segment. -->
+  <path class="ln" d="M174 54 H230" marker-end="url(#a)"/>
+  <path class="ln" d="M174 142 H230" marker-end="url(#a)"/>
+  <path class="ln" d="M380 54 H436" marker-end="url(#a)"/>
+  <path class="ln" d="M586 54 H642" marker-end="url(#a)"/>
+  <path class="ln" d="M380 142 H642" marker-end="url(#a)"/>
+  <path class="ln" d="M792 98 H848" marker-end="url(#a)"/>
+  <path class="ln" d="M998 98 H1054" marker-end="url(#a)"/>
+
+  <!-- Boxes -->
+  <rect class="api" x="24" y="24" width="150" height="148" rx="10"/><text x="99" y="89">run()</text><text class="sub" x="99" y="107">main.go</text>
+  <rect class="api" x="230" y="24" width="150" height="60" rx="10"/><text x="305" y="45">connectDB()</text><text class="sub" x="305" y="63">db.go</text>
+  <rect class="api" x="230" y="112" width="150" height="60" rx="10"/><text x="305" y="133">queueClient</text><text class="sub" x="305" y="151">queue.go</text>
+  <rect class="api" x="436" y="24" width="150" height="60" rx="10"/><text x="511" y="45">videoStore</text><text class="sub" x="511" y="63">db.go</text>
+  <rect class="api" x="642" y="24" width="150" height="148" rx="10"/><text x="717" y="89">newServer()</text><text class="sub" x="717" y="107">videos.go</text>
+  <rect class="api" x="848" y="68" width="150" height="60" rx="10"/><text x="923" y="89">routes()</text><text class="sub" x="923" y="107">videos.go</text>
+  <rect class="ext" x="1054" y="68" width="150" height="60" rx="10"/><text x="1129" y="89">http.Server</text><text class="sub" x="1129" y="107">Port 8080</text>
+</svg>

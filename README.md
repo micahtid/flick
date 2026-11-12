@@ -1,37 +1,27 @@
 # Flick
 
-A video platform built from the storage up. Upload videos, watch them in adaptive quality, and stream live with chat, all running on a fault tolerant storage cluster written in Go.
+A video platform built from the storage up. Upload a video, and workers convert it in the background while you wait.
 
 ## Architecture
 
-![Flick architecture](docs/architecture.svg)
+![How the folders connect](docs/folders.svg)
 
-| Component | Folder | Job |
+| Folder | Job | Docs |
 | --- | --- | --- |
-| Nginx | `nginx/` | Serves the site and routes requests. |
-| API Gateway | `api/` | Handles uploads, video lists and chat. |
-| Job Queue | `queue/` | Assigns conversion jobs and retries failures. |
-| Workers | `worker/` | Convert videos with FFmpeg. |
-| Chunk Store | `storage/` | Stores every file three times. |
-| Edge Cache | `cache/` | Keeps popular segments in memory. |
-| Live Ingest | `ingest/` | Turns live streams into segments. |
-| Postgres | | Stores video records. |
-| Redis | | Relays chat and counts views. |
-| Prometheus, Grafana | `monitoring/` | Collect and show metrics. |
-| Website | `web/` | React frontend. |
+| `web/` | The React site: upload form, video grid and watch page. | |
+| `nginx/` | Serves the site and forwards `/api` requests to the API. | |
+| `api/` | Saves uploads, lists videos, and asks the queue to convert them. | [README](api/README.md) |
+| `queue/` | Hands out one job per worker, and retries jobs stuck for 5 minutes. | [README](queue/README.md) |
+| `worker/` | Converts each video to 720p, then marks it ready. | [README](worker/README.md) |
+
+`storage/`, `cache/`, `ingest/` and `monitoring/` are placeholders for later phases. See the [roadmap](docs/phases/README.md) and the [full planned architecture](docs/architecture.svg).
 
 ## Running It
 
 Requires Docker Desktop.
 
 ```sh
-docker compose --profile full up --build
+docker compose up --build
 ```
 
-| Open | For |
-| --- | --- |
-| http://localhost | Website |
-| http://localhost:3001 | Grafana dashboards |
-| http://localhost:9090 | Prometheus |
-
-Built with Go, React, FFmpeg, HLS, Raft, Postgres, Redis, Nginx and Docker.
+Open http://localhost. Add `--scale worker=2` to run two workers.

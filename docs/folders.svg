@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1308 968" width="1308" height="968" role="img" aria-label="How Flick&#x27;s folders and files connect">
+  <style>
+    text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 14px; fill: #1f2328; text-anchor: middle; dominant-baseline: central; }
+    .sub { font-size: 12px; fill: #57606a; }
+    .folder { font-size: 13px; font-weight: 600; fill: #57606a; text-anchor: start; }
+    .web { fill: #ffe3c4; } .p-web { fill: #fff6ec; }
+    .nginx { fill: #cdeee8; } .p-nginx { fill: #effaf8; }
+    .api { fill: #d8e6ff; } .p-api { fill: #f2f6ff; }
+    .queue { fill: #e5dbff; } .p-queue { fill: #f7f3ff; }
+    .worker { fill: #d3efdc; } .p-worker { fill: #f0f9f3; }
+    .ext { fill: #eaeef2; } .p-ext { fill: #f6f8fa; }
+    .ln { fill: none; stroke: #6e7781; stroke-width: 1.6; stroke-linecap: round; }
+    .head { fill: #6e7781; }
+    @media (prefers-color-scheme: dark) {
+      text { fill: #f0f6fc; }
+      .sub, .folder { fill: #c9d1d9; }
+      .web { fill: #6b4e30; } .p-web { fill: #3a2e22; }
+      .nginx { fill: #2f6158; } .p-nginx { fill: #243b38; }
+      .api { fill: #34507e; } .p-api { fill: #263147; }
+      .queue { fill: #4f4180; } .p-queue { fill: #312a47; }
+      .worker { fill: #326343; } .p-worker { fill: #253a2d; }
+      .ext { fill: #3d444d; } .p-ext { fill: #30363d; }
+      .ln { stroke: #a0a8b0; }
+      .head { fill: #a0a8b0; }
+    }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path class="head" d="M1 1.5 L9 5 L1 8.5 Q2.6 5 1 1.5 Z"/>
+    </marker>
+  </defs>
+
+  <!-- Folders (drawn first so everything else sits on top) -->
+  <rect class="p-web" x="91" y="24" width="248" height="136" rx="14"/><text class="folder" x="109" y="48">web/</text>
+  <rect class="p-nginx" x="91" y="224" width="248" height="136" rx="14"/><text class="folder" x="109" y="248">nginx/</text>
+  <rect class="p-api" x="24" y="424" width="390" height="280" rx="14"/><text class="folder" x="42" y="448">api/</text>
+  <rect class="p-queue" x="555" y="568" width="198" height="256" rx="14"/><text class="folder" x="573" y="592">queue/</text>
+  <rect class="p-worker" x="894" y="424" width="390" height="280" rx="14"/><text class="folder" x="912" y="448">worker/</text>
+
+  <!-- Lines. Each one is a single straight segment. -->
+  <path class="ln" d="M215 132 V276" marker-end="url(#a)"/>
+  <path class="ln" d="M215 332 V476" marker-end="url(#a)"/>
+  <path class="ln" d="M390 504 H579" marker-end="url(#a)"/>
+  <path class="ln" d="M918 504 H729" marker-end="url(#a)"/>
+  <path class="ln" d="M126 532 V620" marker-end="url(#a)"/>
+  <path class="ln" d="M312 532 V620" marker-end="url(#a)"/>
+  <path class="ln" d="M996 532 V620" marker-end="url(#a)"/>
+  <path class="ln" d="M1182 532 V620" marker-end="url(#a)"/>
+  <path class="ln" d="M390 648 H579" marker-end="url(#a)"/>
+  <path class="ln" d="M918 648 H729" marker-end="url(#a)"/>
+  <path class="ln" d="M654 676 V740" marker-end="url(#a)"/>
+  <path class="ln" d="M126 676 V888" marker-end="url(#a)"/>
+  <path class="ln" d="M654 796 V888" marker-end="url(#a)"/>
+  <path class="ln" d="M1182 676 V888" marker-end="url(#a)"/>
+  <text class="sub" x="225" y="192" style="text-anchor: start">HTTP</text>
+  <text class="sub" x="496.5" y="490">Saves Uploads</text>
+  <text class="sub" x="811.5" y="490">Writes 720p Copies</text>
+  <text class="sub" x="484.5" y="634">Adds Jobs</text>
+  <text class="sub" x="823.5" y="634">Claims Jobs</text>
+  <text class="sub" x="136" y="796" style="text-anchor: start">videos Table</text>
+  <text class="sub" x="664" y="856" style="text-anchor: start">jobs Table</text>
+  <text class="sub" x="1172" y="796" style="text-anchor: end">Marks Videos Ready</text>
+
+  <!-- Boxes -->
+  <rect class="web" x="115" y="76" width="200" height="56" rx="10"/><text x="215" y="95">api.ts</text><text class="sub" x="215" y="113">Uploads and lists videos.</text>
+  <rect class="nginx" x="115" y="276" width="200" height="56" rx="10"/><text x="215" y="295">nginx.conf</text><text class="sub" x="215" y="313">Forwards /api to the API.</text>
+  <rect class="api" x="48" y="476" width="342" height="56" rx="10"/><text x="219" y="495">videos.go</text><text class="sub" x="219" y="513">Handles each request.</text>
+  <rect class="api" x="48" y="620" width="156" height="56" rx="10"/><text x="126" y="639">db.go</text><text class="sub" x="126" y="657">videoStore</text>
+  <rect class="api" x="234" y="620" width="156" height="56" rx="10"/><text x="312" y="639">queue.go</text><text class="sub" x="312" y="657">queueClient</text>
+  <rect class="ext" x="579" y="476" width="150" height="56" rx="10"/><text x="654" y="495">Uploads Volume</text><text class="sub" x="654" y="513">/data</text>
+  <rect class="queue" x="579" y="620" width="150" height="56" rx="10"/><text x="654" y="639">jobs.go</text><text class="sub" x="654" y="657">Hands out jobs.</text>
+  <rect class="queue" x="579" y="740" width="150" height="56" rx="10"/><text x="654" y="759">db.go</text><text class="sub" x="654" y="777">jobStore</text>
+  <rect class="worker" x="918" y="476" width="342" height="56" rx="10"/><text x="1089" y="495">worker.go</text><text class="sub" x="1089" y="513">Converts with FFmpeg.</text>
+  <rect class="worker" x="918" y="620" width="156" height="56" rx="10"/><text x="996" y="639">queue.go</text><text class="sub" x="996" y="657">queueClient</text>
+  <rect class="worker" x="1104" y="620" width="156" height="56" rx="10"/><text x="1182" y="639">db.go</text><text class="sub" x="1182" y="657">videoStore</text>
+  <rect class="ext" x="48" y="888" width="1212" height="56" rx="10"/><text x="654" y="907">Postgres</text><text class="sub" x="654" y="925">videos and jobs tables</text>
+</svg>
