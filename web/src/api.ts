@@ -1,12 +1,17 @@
 // Functions for talking to the Go API. Requests go to /api/..., and Nginx (or
 // Vite while coding) passes them on to the API.
 
+import { titleCase } from './format'
+
+// A video is "processing" while a worker converts it, then "ready" to play.
+export type VideoStatus = 'processing' | 'ready'
+
 // One video, in the shape the API sends it. created_at is a date written as
 // text, such as "2026-11-10T22:16:08Z".
 export type Video = {
   id: string
   title: string
-  status: string
+  status: VideoStatus
   created_at: string
 }
 
@@ -64,7 +69,7 @@ export function uploadVideo(
     }
 
     // Runs if the request never got a reply at all, such as when offline.
-    xhr.onerror = () => reject(new Error('Network error. Check your connection and try again.'))
+    xhr.onerror = () => reject(new Error('Network Error. Check Your Connection and Try Again.'))
 
     xhr.send(body)
   })
@@ -78,10 +83,11 @@ export function errorMessage(err: unknown): string {
 // Picks the message to show for a failed request.
 function failureMessage(status: number, body: string): string {
   // 413 means "too large". Nginx sends it before the request reaches the API.
-  if (status === 413) return 'That file is too large. The limit is 2 GB.'
-  // The API explains errors in short plain text, which is shown as is. Nginx's
-  // own error pages are HTML (they start with "<"), so those aren't shown.
+  if (status === 413) return 'That File Is Too Large. The Limit Is 2 GB.'
+  // The API explains errors in short plain text, such as "missing title",
+  // which is shown in title case. Nginx's own error pages are HTML (they start
+  // with "<"), so those aren't shown.
   const text = body.trim()
-  if (text && !text.startsWith('<')) return text
-  return `Request failed with status ${status}`
+  if (text && !text.startsWith('<')) return titleCase(text)
+  return `Request Failed With Status ${status}`
 }

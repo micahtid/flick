@@ -1,18 +1,29 @@
 import { useState } from 'react'
-import { videoFileUrl } from '../api'
+import { videoFileUrl, type Video } from '../api'
 import { formatDuration } from '../format'
+import { VideoIcon } from './icons'
 
 type Props = {
-  videoId: string
+  video: Video
 }
 
-export function Thumbnail({ videoId }: Props) {
+export function Thumbnail({ video }: Props) {
   const [duration, setDuration] = useState<number | null>(null)
+
+  // There's no file to show until a worker has converted the video, so show
+  // a plain placeholder instead.
+  if (video.status !== 'ready') {
+    return (
+      <div className="thumbnail thumbnail-pending">
+        <VideoIcon size={32} />
+      </div>
+    )
+  }
 
   return (
     <div className="thumbnail">
       <video
-        src={`${videoFileUrl(videoId)}#t=0.5`}
+        src={`${videoFileUrl(video.id)}#t=0.5`}
         preload="metadata"
         muted
         playsInline

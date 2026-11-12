@@ -18,17 +18,35 @@ const units: [Intl.RelativeTimeFormatUnit, number][] = [
 ]
 
 // Describes how long ago a date was, using the largest unit that fits:
-// "3 hours ago", "yesterday", or "now" for under a minute.
+// "3 Hours Ago", "Yesterday", or "Now" for under a minute.
 export function timeAgo(iso: string, now = Date.now()): string {
   // Seconds between the date and now. It's negative because the date is in
   // the past, which is what tells the formatter to say "ago".
   const seconds = (new Date(iso).getTime() - now) / 1000
   for (const [unit, size] of units) {
     if (Math.abs(seconds) >= size) {
-      return relativeTime.format(Math.round(seconds / size), unit)
+      return titleCase(relativeTime.format(Math.round(seconds / size), unit))
     }
   }
-  return relativeTime.format(0, 'second')
+  return titleCase(relativeTime.format(0, 'second'))
+}
+
+// Short words that stay lowercase in title case, unless they start a
+// sentence.
+const minorWords = new Set(['a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'in', 'of', 'on', 'or', 'the', 'to'])
+
+// Puts text in title case, so every word starts with a capital letter except
+// the short words above: "try again in a minute" becomes "Try Again in a
+// Minute". All text on the site uses title case. This is for text made while
+// the site runs, such as dates and the API's error messages.
+export function titleCase(text: string): string {
+  // [A-Za-z][\w']* matches one word, including words like "isn't".
+  return text.replace(/[A-Za-z][\w']*/g, (word, offset: number) => {
+    // A word starts a sentence if it's first, or comes after a full stop.
+    const startsSentence = offset === 0 || /[.!?]\s*$/.test(text.slice(0, offset))
+    if (!startsSentence && minorWords.has(word.toLowerCase())) return word.toLowerCase()
+    return word[0].toUpperCase() + word.slice(1)
+  })
 }
 
 // Turns a length in seconds into "4:07", or "1:02:09" for an hour or more.

@@ -50,7 +50,7 @@ export function UploadForm({ onUploaded }: Props) {
   async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault() // This stops the browser's own submit, which would reload the page.
     if (!file) {
-      setError('Choose a video to upload.')
+      setError('Choose a Video to Upload.')
       return
     }
 
@@ -67,7 +67,7 @@ export function UploadForm({ onUploaded }: Props) {
   }
 
   return (
-    <form className="upload" onSubmit={handleSubmit} aria-label="Upload a video">
+    <form className="upload" onSubmit={handleSubmit} aria-label="Upload a Video">
       <label
         className={`dropzone${dragging ? ' dragging' : ''}`}
         onDragOver={(event) => {
@@ -92,12 +92,12 @@ export function UploadForm({ onUploaded }: Props) {
           {file ? (
             <>
               <strong>{file.name}</strong>
-              <span className="meta">{formatFileSize(file.size)} · Click to choose another</span>
+              <span className="meta">{formatFileSize(file.size)} · Click to Choose Another</span>
             </>
           ) : (
             <>
-              <strong>Drag and drop a video, or click to browse</strong>
-              <span className="meta">MP4 up to 2 GB</span>
+              <strong>Drag and Drop a Video, or Click to Browse</strong>
+              <span className="meta">MP4 Up to 2 GB</span>
             </>
           )}
         </span>
@@ -124,7 +124,7 @@ export function UploadForm({ onUploaded }: Props) {
         <div
           className="progress"
           role="progressbar"
-          aria-label="Upload progress"
+          aria-label="Upload Progress"
           aria-valuenow={Math.round(progress * 100)}
           aria-valuemin={0}
           aria-valuemax={100}

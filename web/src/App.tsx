@@ -6,6 +6,9 @@ import { VideoGrid, VideoGridSkeleton } from './components/VideoGrid'
 import { WatchPage } from './components/WatchPage'
 import { useWatchId } from './router'
 
+// How often to load the list again while a video is processing.
+const POLL_INTERVAL_MS = 3000
+
 export default function App() {
   const watchId = useWatchId()
 
@@ -14,7 +17,7 @@ export default function App() {
 
   const [reloadKey, setReloadKey] = useState(0)
   // Loads the video list again. Changing reloadKey re-runs the effect that
-  // fetches the list. Called after each upload.
+  // fetches the list. Called after each upload, and while videos process.
   const reload = () => setReloadKey((key) => key + 1)
 
   useEffect(() => {
@@ -34,6 +37,17 @@ export default function App() {
     }
   }, [reloadKey])
 
+  // While any video is still processing, load the list again every few
+  // seconds, so its status changes on screen without a refresh. Each load
+  // changes reloadKey, which runs this effect again and sets the next timer.
+  // Once nothing is processing, the timers stop.
+  const processing = videos?.some((v) => v.status === 'processing') ?? false
+  useEffect(() => {
+    if (!processing) return
+    const timer = setTimeout(reload, POLL_INTERVAL_MS)
+    return () => clearTimeout(timer)
+  }, [processing, reloadKey])
+
   const watching = watchId ? videos?.find((v) => v.id === watchId) : undefined
 
   useEffect(() => {
@@ -48,10 +62,10 @@ export default function App() {
     if (error && !videos) {
       return (
         <div className="empty" role="alert">
-          <h2>Couldn't load videos</h2>
+          <h2>Couldn't Load Videos</h2>
           <p>{error}</p>
           <button type="button" className="button button-tonal" onClick={reload}>
-            Try again
+            Try Again
           </button>
         </div>
       )
@@ -66,9 +80,9 @@ export default function App() {
     if (!watching) {
       return (
         <div className="empty">
-          <h2>This video isn't available</h2>
+          <h2>This Video Isn't Available</h2>
           <Link href="/" className="button button-tonal">
-            Back to home
+            Back to Home
           </Link>
         </div>
       )

@@ -1,8 +1,8 @@
 import type { Video } from '../api'
-import { timeAgo } from '../format'
 import { watchUrl } from '../router'
 import { Link } from './Link'
 import { Thumbnail } from './Thumbnail'
+import { VideoMeta } from './VideoMeta'
 import { VideoIcon } from './icons'
 
 type Props = {
@@ -14,8 +14,8 @@ export function VideoGrid({ videos }: Props) {
     return (
       <div className="empty">
         <VideoIcon size={64} />
-        <h2>No videos yet</h2>
-        <p>Upload your first video above to get started.</p>
+        <h2>No Videos Yet</h2>
+        <p>Upload Your First Video Above to Get Started.</p>
       </div>
     )
   }
@@ -25,9 +25,9 @@ export function VideoGrid({ videos }: Props) {
       {videos.map((video) => (
         <li key={video.id}>
           <Link href={watchUrl(video.id)} className="card">
-            <Thumbnail videoId={video.id} />
+            <Thumbnail video={video} />
             <h3 className="card-title">{video.title}</h3>
-            <p className="meta">{timeAgo(video.created_at)}</p>
+            <VideoMeta video={video} />
           </Link>
         </li>
       ))}
@@ -39,7 +39,7 @@ const SKELETON_COUNT = 8
 
 export function VideoGridSkeleton() {
   return (
-    <ul className="grid" aria-busy="true" aria-label="Loading videos">
+    <ul className="grid" aria-busy="true" aria-label="Loading Videos">
       {Array.from({ length: SKELETON_COUNT }, (_, i) => (
         <li key={i} className="skeleton">
           <div className="thumbnail" />

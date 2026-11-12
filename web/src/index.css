@@ -209,6 +209,13 @@ input {
   pointer-events: none;
 }
 
+/* Shown in place of the video while it's still processing. */
+.thumbnail-pending {
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+}
+
 .duration {
   position: absolute;
   right: 8px;
@@ -217,6 +224,19 @@ input {
   border-radius: var(--radius-sm);
   background: rgba(0, 0, 0, 0.8);
   color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+/* A small label before the upload time, such as "Processing". */
+.status {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
   font-size: 12px;
   font-weight: 500;
   line-height: 18px;
@@ -296,6 +316,15 @@ input {
   max-height: calc(100vh - 160px);
   border-radius: var(--radius-lg);
   background: #000;
+}
+
+.player-pending {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  text-align: center;
 }
 
 .watch-title {
