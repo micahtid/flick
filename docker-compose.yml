@@ -1,4 +1,4 @@
-# `docker compose up --build` starts the Phase 2 stack (db, api, queue,
+# `docker compose up --build` starts the Phase 3 stack (db, api, queue,
 # worker, nginx). Add `--scale worker=2` to run two workers.
 # `docker compose --profile full up --build` starts all 13 containers.
 
@@ -27,11 +27,15 @@ services:
       - uploads:/data
     depends_on: [db, queue]
 
+  # Phase 3 gives Nginx the uploads volume, read only (ro), so it can serve
+  # the HLS files the workers write to /data/hls.
   nginx:
     build:
       context: .
       dockerfile: nginx/Dockerfile
     ports: ["80:80"]
+    volumes:
+      - uploads:/data:ro
     depends_on: [api]
 
   # Phase 2
@@ -44,7 +48,7 @@ services:
 
   # One service, so Compose can start as many copies as `--scale` asks for.
   # Each copy shares the uploads volume with the API, so it can read uploads
-  # and save converted files next to them.
+  # and save HLS files in /data/hls for Nginx to serve.
   worker:
     build: ./worker
     environment:
