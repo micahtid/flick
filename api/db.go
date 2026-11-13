@@ -1,7 +1,7 @@
 package main
 
 // Everything that talks to Postgres: connecting, creating the table, and the
-// two queries the API uses.
+// queries the API uses.
 
 import (
 	"context"
@@ -13,16 +13,23 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// schema creates the videos table. IF NOT EXISTS makes it safe to run on every
-// start. Each row is one video. Its status is "processing" until a worker has
-// converted the file, then "ready".
-const schema = `
-CREATE TABLE IF NOT EXISTS videos (
+// schema creates the videos table, one statement at a time. IF NOT EXISTS
+// makes each one safe to run on every start. Each row is one video. Its status
+// is "processing" until a worker has converted the file, then "ready". The
+// worker also fills in duration, the length in seconds.
+//
+// The ALTER adds duration to a table made before Phase 3. Videos converted
+// before then have no duration, so it stays empty (NULL) for them.
+var schema = []string{
+	`CREATE TABLE IF NOT EXISTS videos (
   id         UUID PRIMARY KEY,
   title      TEXT NOT NULL,
   status     TEXT NOT NULL DEFAULT 'processing',
+  duration   DOUBLE PRECISION,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-)`
+)`,
+	`ALTER TABLE videos ADD COLUMN IF NOT EXISTS duration DOUBLE PRECISION`,
+}
 
 // At startup, try to reach Postgres up to 10 times, 1 second apart.
 const (
@@ -30,7 +37,7 @@ const (
 	connectDelay    = time.Second
 )
 
-// connectDB connects to Postgres, waits until it's ready, and creates the
+// connectDB connects to Postgres, waits until it's ready, and sets up the
 // table. Docker often starts the API before Postgres has finished starting,
 // so the first few tries are expected to fail.
 func connectDB(ctx context.Context, url string) (*pgxpool.Pool, error) {
@@ -46,9 +53,11 @@ func connectDB(ctx context.Context, url string) (*pgxpool.Pool, error) {
 		return nil, err
 	}
 
-	if _, err := db.Exec(ctx, schema); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("create schema: %w", err)
+	for _, stmt := range schema {
+		if _, err := db.Exec(ctx, stmt); err != nil {
+			db.Close()
+			return nil, fmt.Errorf("create schema: %w", err)
+		}
 	}
 	return db, nil
 }
@@ -75,11 +84,13 @@ func pingWithRetry(ctx context.Context, db *pgxpool.Pool) error {
 }
 
 // Video is one row of the videos table. The `json:"..."` tags name each field
-// in the JSON sent to the website.
+// in the JSON sent to the website. Duration is a pointer so it can be nil,
+// sent as null, until a worker has measured the video.
 type Video struct {
 	ID        uuid.UUID `json:"id"`
 	Title     string    `json:"title"`
 	Status    string    `json:"status"`
+	Duration  *float64  `json:"duration"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -116,7 +127,7 @@ func (s *videoStore) Delete(ctx context.Context, id uuid.UUID) error {
 // List returns every video, newest first.
 func (s *videoStore) List(ctx context.Context) ([]Video, error) {
 	rows, err := s.db.Query(ctx,
-		`SELECT id, title, status, created_at FROM videos ORDER BY created_at DESC`)
+		`SELECT id, title, status, duration, created_at FROM videos ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +137,7 @@ func (s *videoStore) List(ctx context.Context) ([]Video, error) {
 	videos := []Video{}
 	for rows.Next() {
 		var v Video
-		if err := rows.Scan(&v.ID, &v.Title, &v.Status, &v.CreatedAt); err != nil {
+		if err := rows.Scan(&v.ID, &v.Title, &v.Status, &v.Duration, &v.CreatedAt); err != nil {
 			return nil, err
 		}
 		videos = append(videos, v)

@@ -1,6 +1,7 @@
 // Package main is the Flick API. It saves uploaded videos, records them in
-// Postgres, asks the queue to convert them, and serves them back. Nginx
-// forwards every /api request here with the /api part removed.
+// Postgres, asks the queue to convert them, and lists them. Nginx forwards
+// every /api request here with the /api part removed. Nginx serves the
+// converted HLS files itself, straight from disk.
 package main
 
 import (

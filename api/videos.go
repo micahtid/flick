@@ -58,7 +58,6 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("GET /health", s.health)
 	mux.HandleFunc("POST /videos", s.createVideo)
 	mux.HandleFunc("GET /videos", s.listVideos)
-	mux.HandleFunc("GET /videos/{id}/file", s.serveVideoFile)
 	return mux
 }
 
@@ -182,30 +181,9 @@ func (s *server) listVideos(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, videos)
 }
 
-// serveVideoFile sends a video's converted 720p file. It replies 404 until a
-// worker has made it. http.ServeFile also handles "range requests", where the
-// browser asks for just one slice of the file. That's what lets you jump to
-// any point in the video.
-func (s *server) serveVideoFile(w http.ResponseWriter, r *http.Request) {
-	// Only accept a real UUID. This also blocks tricks like "../../etc/passwd"
-	// that try to read files outside the data folder.
-	id, err := uuid.Parse(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "invalid video id", http.StatusBadRequest)
-		return
-	}
-	http.ServeFile(w, r, s.convertedPath(id))
-}
-
 // videoPath is where an uploaded file is saved, such as /data/<id>.mp4.
 func (s *server) videoPath(id uuid.UUID) string {
 	return filepath.Join(s.dataDir, id.String()+".mp4")
-}
-
-// convertedPath is where a worker saves the 720p copy, such as
-// /data/<id>_720p.mp4.
-func (s *server) convertedPath(id uuid.UUID) string {
-	return filepath.Join(s.dataDir, id.String()+"_720p.mp4")
 }
 
 // badRequest is an error caused by bad input from the client. uploadError
