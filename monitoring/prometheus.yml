@@ -1,7 +1,7 @@
 global:
   scrape_interval: 15s
 
-# Targets get added here as each service starts exposing /metrics (Phase 8).
+# Each service is added here once it starts exposing /metrics in Phase 8.
 scrape_configs:
   - job_name: prometheus
     static_configs:

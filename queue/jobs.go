@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Queue limits.
+// These limit how long the line can get and how long a job can be held.
 const (
 	// maxWaiting is how many jobs may wait at once. Past this, new jobs are
 	// turned away so the line can't grow forever.
@@ -75,9 +75,9 @@ func (s *server) addJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Backpressure: push back when the line is full. Two requests at the same
-	// moment can both pass this check, so the line can go slightly over the
-	// limit. That's fine, since the goal is only to stop it growing forever.
+	// Turn the job away if the line is full. Two requests at the same moment
+	// can both pass this check, so the line can go slightly over the limit.
+	// That's fine, since the goal is only to stop it growing forever.
 	waiting, err := s.jobs.Waiting(r.Context())
 	if err != nil {
 		internalError(w, "count waiting jobs", err)

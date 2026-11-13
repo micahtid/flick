@@ -7,7 +7,7 @@ x-storage: &storage
   profiles: [full]
 
 services:
-  # Phase 1
+  # These services start in Phase 1.
   db:
     image: postgres:16
     environment:
@@ -38,7 +38,7 @@ services:
       - uploads:/data:ro
     depends_on: [api]
 
-  # Phase 2
+  # These services start in Phase 2.
   queue:
     build: ./queue
     environment:
@@ -46,7 +46,7 @@ services:
     ports: ["8081:8081"]
     depends_on: [db]
 
-  # One service, so Compose can start as many copies as `--scale` asks for.
+  # This is one service, so Compose can start as many copies as `--scale` asks for.
   # Each copy shares the uploads volume with the API, so it can read uploads
   # and save HLS files in /data/hls for Nginx to serve.
   worker:
@@ -58,7 +58,7 @@ services:
       - uploads:/data
     depends_on: [queue, db]
 
-  # Later phases
+  # These services are for later phases. They only start with `--profile full`.
   redis:
     image: redis:7
     profiles: [full]
@@ -97,7 +97,7 @@ services:
   grafana:
     image: grafana/grafana:12.1.0
     profiles: [full]
-    ports: ["3001:3000"]  # 3000 is often taken on this machine
+    ports: ["3001:3000"]  # Port 3000 is often taken on this machine, so use 3001.
     volumes:
       - ./monitoring/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
     depends_on: [prometheus]

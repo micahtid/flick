@@ -37,7 +37,7 @@
   <rect class="p-queue" x="555" y="568" width="198" height="256" rx="14"/><text class="folder" x="573" y="592">queue/</text>
   <rect class="p-worker" x="894" y="424" width="390" height="280" rx="14"/><text class="folder" x="912" y="448">worker/</text>
 
-  <!-- Lines. Each one is a single straight segment. -->
+  <!-- Lines. Each one is a single straight segment, except the one bend from nginx.conf to the uploads volume. -->
   <path class="ln" d="M215 132 V276" marker-end="url(#a)"/>
   <path class="ln" d="M215 332 V476" marker-end="url(#a)"/>
   <path class="ln" d="M390 504 H579" marker-end="url(#a)"/>
@@ -49,12 +49,14 @@
   <path class="ln" d="M390 648 H579" marker-end="url(#a)"/>
   <path class="ln" d="M918 648 H729" marker-end="url(#a)"/>
   <path class="ln" d="M654 676 V740" marker-end="url(#a)"/>
+  <path class="ln" d="M315 304 H654 V476" marker-end="url(#a)"/>
   <path class="ln" d="M126 676 V888" marker-end="url(#a)"/>
   <path class="ln" d="M654 796 V888" marker-end="url(#a)"/>
   <path class="ln" d="M1182 676 V888" marker-end="url(#a)"/>
   <text class="sub" x="225" y="192" style="text-anchor: start">HTTP</text>
   <text class="sub" x="496.5" y="490">Saves Uploads</text>
-  <text class="sub" x="811.5" y="490">Writes 720p Copies</text>
+  <text class="sub" x="811.5" y="490">Writes HLS Files</text>
+  <text class="sub" x="484.5" y="290">Serves /hls Files</text>
   <text class="sub" x="484.5" y="634">Adds Jobs</text>
   <text class="sub" x="823.5" y="634">Claims Jobs</text>
   <text class="sub" x="136" y="796" style="text-anchor: start">videos Table</text>
@@ -62,15 +64,15 @@
   <text class="sub" x="1172" y="796" style="text-anchor: end">Marks Videos Ready</text>
 
   <!-- Boxes -->
-  <rect class="web" x="115" y="76" width="200" height="56" rx="10"/><text x="215" y="95">api.ts</text><text class="sub" x="215" y="113">Uploads and lists videos.</text>
-  <rect class="nginx" x="115" y="276" width="200" height="56" rx="10"/><text x="215" y="295">nginx.conf</text><text class="sub" x="215" y="313">Forwards /api to the API.</text>
+  <rect class="web" x="115" y="76" width="200" height="56" rx="10"/><text x="215" y="95">api.ts, Player.tsx</text><text class="sub" x="215" y="113">Uploads, lists and plays.</text>
+  <rect class="nginx" x="115" y="276" width="200" height="56" rx="10"/><text x="215" y="295">nginx.conf</text><text class="sub" x="215" y="313">Forwards /api, serves /hls.</text>
   <rect class="api" x="48" y="476" width="342" height="56" rx="10"/><text x="219" y="495">videos.go</text><text class="sub" x="219" y="513">Handles each request.</text>
   <rect class="api" x="48" y="620" width="156" height="56" rx="10"/><text x="126" y="639">db.go</text><text class="sub" x="126" y="657">videoStore</text>
   <rect class="api" x="234" y="620" width="156" height="56" rx="10"/><text x="312" y="639">queue.go</text><text class="sub" x="312" y="657">queueClient</text>
   <rect class="ext" x="579" y="476" width="150" height="56" rx="10"/><text x="654" y="495">Uploads Volume</text><text class="sub" x="654" y="513">/data</text>
   <rect class="queue" x="579" y="620" width="150" height="56" rx="10"/><text x="654" y="639">jobs.go</text><text class="sub" x="654" y="657">Hands out jobs.</text>
   <rect class="queue" x="579" y="740" width="150" height="56" rx="10"/><text x="654" y="759">db.go</text><text class="sub" x="654" y="777">jobStore</text>
-  <rect class="worker" x="918" y="476" width="342" height="56" rx="10"/><text x="1089" y="495">worker.go</text><text class="sub" x="1089" y="513">Converts with FFmpeg.</text>
+  <rect class="worker" x="918" y="476" width="342" height="56" rx="10"/><text x="1089" y="495">worker.go, hls.go</text><text class="sub" x="1089" y="513">Converts to HLS with FFmpeg.</text>
   <rect class="worker" x="918" y="620" width="156" height="56" rx="10"/><text x="996" y="639">queue.go</text><text class="sub" x="996" y="657">queueClient</text>
   <rect class="worker" x="1104" y="620" width="156" height="56" rx="10"/><text x="1182" y="639">db.go</text><text class="sub" x="1182" y="657">videoStore</text>
   <rect class="ext" x="48" y="888" width="1212" height="56" rx="10"/><text x="654" y="907">Postgres</text><text class="sub" x="654" y="925">videos and jobs tables</text>

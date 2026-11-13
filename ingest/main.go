@@ -12,7 +12,7 @@ import (
 func main() {
 	port := getenv("PORT", "8083")
 
-	// /health replies "ok", a quick way to check the service is running.
+	// /health replies "ok". It's a quick way to check the service is running.
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("ok"))

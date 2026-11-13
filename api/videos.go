@@ -19,7 +19,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Upload limits.
+// These limit the size of an upload.
 const (
 	maxUploadBytes = 2 << 30 // This is 2 GiB (2 × 2³⁰ bytes), the same limit as nginx.conf.
 	maxTitleBytes  = 200

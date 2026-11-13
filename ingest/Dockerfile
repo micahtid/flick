@@ -14,7 +14,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -o /out/app .
 
-# Stage 2 is the image that runs: a small Linux plus the program.
+# Stage 2 is the image that runs. It's a small Linux system plus the program.
 FROM alpine:3.22
 
 # Install FFmpeg, the tool that converts video. --no-cache skips keeping the

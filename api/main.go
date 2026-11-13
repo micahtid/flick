@@ -31,7 +31,7 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Settings from environment variables, set in docker-compose.yml.
+	// Read the settings from environment variables, which docker-compose.yml sets.
 	port := getenv("PORT", "8080")
 	dataDir := getenv("DATA_DIR", "/data") // This is where uploaded files are saved.
 	queueURL := getenv("QUEUE_URL", "http://queue:8081")

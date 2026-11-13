@@ -79,6 +79,6 @@ export function formatFileSize(bytes: number): string {
     size /= 1024
     unit++
   }
-  // One decimal place, except for plain bytes.
+  // Show one decimal place, except for plain bytes.
   return `${size.toFixed(unit === 0 ? 0 : 1)} ${sizeUnits[unit]}`
 }

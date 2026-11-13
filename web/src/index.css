@@ -153,8 +153,8 @@ input {
 
 /* ---------- Home grid ---------- */
 
-/* As many 300px+ columns as fit (three on a full-width container),
-   filled from the left. */
+/* Fit as many columns of at least 300px as there is room for, filled from
+   the left. A full-width container fits three. */
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -209,7 +209,7 @@ input {
   pointer-events: none;
 }
 
-/* Shown in place of the video while it's still processing. */
+/* This is shown in place of the video while it's still processing. */
 .thumbnail-pending {
   display: grid;
   place-items: center;
@@ -229,7 +229,7 @@ input {
   line-height: 18px;
 }
 
-/* A small label before the upload time, such as "Processing". */
+/* This is the small label before the upload time, such as "Processing". */
 .status {
   display: inline-block;
   margin-right: 6px;

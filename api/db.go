@@ -133,7 +133,7 @@ func (s *videoStore) List(ctx context.Context) ([]Video, error) {
 	}
 	defer rows.Close()
 
-	// An empty list rather than nil, so no videos is sent as [] instead of null.
+	// Start with an empty list rather than nil, so no videos is sent as [] instead of null.
 	videos := []Video{}
 	for rows.Next() {
 		var v Video

@@ -37,7 +37,7 @@
 
   <!-- Boxes -->
   <rect class="worker" x="24" y="24" width="184" height="60" rx="10"/><text x="116" y="45">queueClient.Claim()</text><text class="sub" x="116" y="63">queue.go</text>
-  <rect class="worker" x="272" y="24" width="184" height="60" rx="10"/><text x="364" y="45">convertTo720p()</text><text class="sub" x="364" y="63">worker.go</text>
+  <rect class="worker" x="272" y="24" width="184" height="60" rx="10"/><text x="364" y="45">convertToHLS()</text><text class="sub" x="364" y="63">hls.go</text>
   <rect class="worker" x="520" y="24" width="184" height="60" rx="10"/><text x="612" y="45">videoStore.MarkReady()</text><text class="sub" x="612" y="63">db.go</text>
   <rect class="worker" x="768" y="24" width="184" height="60" rx="10"/><text x="860" y="45">queueClient.Done()</text><text class="sub" x="860" y="63">queue.go</text>
 </svg>

@@ -30,7 +30,7 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Settings from environment variables, set in docker-compose.yml.
+	// Read the settings from environment variables, which docker-compose.yml sets.
 	port := getenv("PORT", "8081")
 
 	db, err := connectDB(ctx, os.Getenv("DATABASE_URL"))

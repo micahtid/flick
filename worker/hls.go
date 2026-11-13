@@ -20,16 +20,16 @@ import (
 	"strings"
 )
 
-// File names inside a video's HLS folder, /data/hls/<id>/.
+// These are the file names inside a video's HLS folder, /data/hls/<id>/.
 const (
-	masterName = "master.m3u8" // Written last, so if it exists, every other file is finished.
+	masterName = "master.m3u8" // It's written last, so if it exists, every other file is finished.
 	posterName = "poster.jpg"
 )
 
-// HLS settings shared by every quality.
+// These HLS settings are shared by every quality.
 const (
-	segmentSeconds  = 4       // Each segment's length. Every quality uses the same length, so the player can switch between them cleanly.
-	audioBitrate    = 128_000 // Bits per second of AAC audio.
+	segmentSeconds  = 4       // Every quality uses the same segment length, so the player can switch between them cleanly.
+	audioBitrate    = 128_000 // This is the audio bit rate, in bits per second.
 	posterMaxHeight = 720     // The poster is never taller than this.
 )
 
@@ -137,17 +137,17 @@ func encodeRendition(ctx context.Context, in, dir string, r rendition) error {
 	return runFFmpeg(ctx,
 		"-i", in,
 		"-vf", fmt.Sprintf("scale=-2:%d", r.height), // -2 picks an even width that keeps the shape.
-		"-c:v", "libx264", // H.264, the most common video format.
+		"-c:v", "libx264", // Use H.264, the most common video format.
 		"-preset", "veryfast", // Convert quickly, for slightly bigger files.
 		"-maxrate", strconv.Itoa(maxrate),
-		"-bufsize", strconv.Itoa(2*maxrate), // How far the bit rate may briefly go over the cap.
-		"-c:a", "aac", "-b:a", strconv.Itoa(audioBitrate), // AAC, the most common audio format.
+		"-bufsize", strconv.Itoa(2*maxrate), // This sets how far the bit rate may briefly go over the cap.
+		"-c:a", "aac", "-b:a", strconv.Itoa(audioBitrate), // Use AAC, the most common audio format.
 		// A segment can only start on a key frame (a full picture). Putting one
 		// every segmentSeconds in every rendition makes their segments start at
 		// exactly the same moments.
 		"-force_key_frames", fmt.Sprintf("expr:gte(t,n_forced*%d)", segmentSeconds),
 		"-hls_time", strconv.Itoa(segmentSeconds),
-		"-hls_playlist_type", "vod", // A finished video, not a live one. VOD means "video on demand".
+		"-hls_playlist_type", "vod", // This is a finished video, not a live one. VOD means "video on demand".
 		"-hls_segment_filename", filepath.Join(dir, r.name()+"_%03d.ts"),
 		filepath.Join(dir, r.playlist()),
 	)
@@ -163,7 +163,7 @@ func makePoster(ctx context.Context, in, dir string, src source) error {
 		"-i", in,
 		"-frames:v", "1", // Save one frame.
 		"-vf", fmt.Sprintf("scale=-2:'min(%d,ih)'", posterMaxHeight), // Shrink it, but never enlarge it.
-		"-q:v", "3", // JPEG quality, from 2 (best) to 31 (worst).
+		"-q:v", "3", // Set the JPEG quality, from 2 (best) to 31 (worst).
 		"-update", "1", // Write a single image, not a numbered series.
 		filepath.Join(dir, posterName),
 	)

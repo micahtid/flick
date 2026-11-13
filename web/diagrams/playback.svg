@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 976 108" width="976" height="108" role="img" aria-label="How the site plays a video">
+  <style>
+    text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 14px; fill: #1f2328; text-anchor: middle; dominant-baseline: central; }
+    .sub { font-size: 12px; fill: #57606a; }
+    .folder { font-size: 13px; font-weight: 600; fill: #57606a; text-anchor: start; }
+    .web { fill: #ffe3c4; } .p-web { fill: #fff6ec; }
+    .nginx { fill: #cdeee8; } .p-nginx { fill: #effaf8; }
+    .api { fill: #d8e6ff; } .p-api { fill: #f2f6ff; }
+    .queue { fill: #e5dbff; } .p-queue { fill: #f7f3ff; }
+    .worker { fill: #d3efdc; } .p-worker { fill: #f0f9f3; }
+    .ext { fill: #eaeef2; } .p-ext { fill: #f6f8fa; }
+    .ln { fill: none; stroke: #6e7781; stroke-width: 1.6; stroke-linecap: round; }
+    .head { fill: #6e7781; }
+    @media (prefers-color-scheme: dark) {
+      text { fill: #f0f6fc; }
+      .sub, .folder { fill: #c9d1d9; }
+      .web { fill: #6b4e30; } .p-web { fill: #3a2e22; }
+      .nginx { fill: #2f6158; } .p-nginx { fill: #243b38; }
+      .api { fill: #34507e; } .p-api { fill: #263147; }
+      .queue { fill: #4f4180; } .p-queue { fill: #312a47; }
+      .worker { fill: #326343; } .p-worker { fill: #253a2d; }
+      .ext { fill: #3d444d; } .p-ext { fill: #30363d; }
+      .ln { stroke: #a0a8b0; }
+      .head { fill: #a0a8b0; }
+    }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path class="head" d="M1 1.5 L9 5 L1 8.5 Q2.6 5 1 1.5 Z"/>
+    </marker>
+  </defs>
+
+  <!-- Lines. Each one is a single straight segment. -->
+  <path class="ln" d="M208 54 H272" marker-end="url(#a)"/>
+  <path class="ln" d="M456 54 H520" marker-end="url(#a)"/>
+  <path class="ln" d="M704 54 H768" marker-end="url(#a)"/>
+
+  <!-- Boxes -->
+  <rect class="web" x="24" y="24" width="184" height="60" rx="10"/><text x="116" y="45">WatchPage()</text><text class="sub" x="116" y="63">WatchPage.tsx</text>
+  <rect class="web" x="272" y="24" width="184" height="60" rx="10"/><text x="364" y="45">Player()</text><text class="sub" x="364" y="63">Player.tsx</text>
+  <rect class="ext" x="520" y="24" width="184" height="60" rx="10"/><text x="612" y="45">hls.js</text><text class="sub" x="612" y="63">/hls/&lt;id&gt;/master.m3u8</text>
+  <rect class="ext" x="768" y="24" width="184" height="60" rx="10"/><text x="860" y="45">&lt;video&gt;</text><text class="sub" x="860" y="63">Browser</text>
+</svg>
