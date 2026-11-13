@@ -1,9 +1,14 @@
-import { videoFileUrl, type Video } from '../api'
+import { lazy, Suspense } from 'react'
+import type { Video } from '../api'
 import { formatDate } from '../format'
 import { watchUrl } from '../router'
 import { Link } from './Link'
 import { Thumbnail } from './Thumbnail'
 import { VideoMeta } from './VideoMeta'
+
+// The player uses hls.js, which is large, and only this page needs it. lazy()
+// loads it the first time the player is shown, so the home page loads faster.
+const Player = lazy(() => import('./Player').then((module) => ({ default: module.Player })))
 
 type Props = {
   video: Video
@@ -17,14 +22,10 @@ export function WatchPage({ video, others }: Props) {
         {/* The player only appears once a worker has converted the video. The
             list keeps reloading until then, so it appears without a refresh. */}
         {video.status === 'ready' ? (
-          <video
-            key={video.id}
-            className="player"
-            src={videoFileUrl(video.id)}
-            controls
-            autoPlay
-            playsInline
-          />
+          // Suspense shows an empty player box while hls.js loads.
+          <Suspense fallback={<div className="player" />}>
+            <Player key={video.id} id={video.id} />
+          </Suspense>
         ) : (
           <div className="player player-pending" role="status">
             <p>This Video Is Still Processing. It Will Play Here Once It's Ready.</p>

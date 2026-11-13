@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { videoFileUrl, type Video } from '../api'
+import { posterUrl, type Video } from '../api'
 import { formatDuration } from '../format'
 import { VideoIcon } from './icons'
 
@@ -8,9 +7,7 @@ type Props = {
 }
 
 export function Thumbnail({ video }: Props) {
-  const [duration, setDuration] = useState<number | null>(null)
-
-  // There's no file to show until a worker has converted the video, so show
+  // There's no poster to show until a worker has converted the video, so show
   // a plain placeholder instead.
   if (video.status !== 'ready') {
     return (
@@ -22,17 +19,12 @@ export function Thumbnail({ video }: Props) {
 
   return (
     <div className="thumbnail">
-      <video
-        src={`${videoFileUrl(video.id)}#t=0.5`}
-        preload="metadata"
-        muted
-        playsInline
-        tabIndex={-1}
-        onLoadedMetadata={(event) => setDuration(event.currentTarget.duration)}
-      />
-      {duration !== null && Number.isFinite(duration) && (
-        <span className="duration">{formatDuration(duration)}</span>
-      )}
+      {/* The title is shown next to the image, so it needs no alt text.
+          loading="lazy" waits to fetch images until they're near the screen. */}
+      <img src={posterUrl(video.id)} alt="" loading="lazy" />
+      {/* The length is null for videos converted before Phase 3, or when
+          FFmpeg couldn't tell. */}
+      {video.duration !== null && <span className="duration">{formatDuration(video.duration)}</span>}
     </div>
   )
 }

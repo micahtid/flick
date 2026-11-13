@@ -1,23 +1,37 @@
-// Functions for talking to the Go API. Requests go to /api/..., and Nginx (or
-// Vite while coding) passes them on to the API.
+// Functions for talking to the Go API, and the addresses of each video's
+// files. API requests go to /api/..., and Nginx (or Vite while coding) passes
+// them on to the API. Video files are under /hls/..., which Nginx serves
+// straight from disk.
 
 import { titleCase } from './format'
 
 // A video is "processing" while a worker converts it, then "ready" to play.
 export type VideoStatus = 'processing' | 'ready'
 
-// One video, in the shape the API sends it. created_at is a date written as
-// text, such as "2026-11-10T22:16:08Z".
+// One video, in the shape the API sends it. duration is its length in
+// seconds, or null until a worker has converted it. created_at is a date
+// written as text, such as "2026-11-10T22:16:08Z".
 export type Video = {
   id: string
   title: string
   status: VideoStatus
+  duration: number | null
   created_at: string
 }
 
-// The address of a video's file, for use as a <video> source.
-export function videoFileUrl(id: string): string {
-  return `/api/videos/${id}/file`
+// The address of one of the files a worker made for a video.
+function hlsFileUrl(id: string, name: string): string {
+  return `/hls/${encodeURIComponent(id)}/${name}`
+}
+
+// The master playlist, which lists every quality. The player starts here.
+export function playlistUrl(id: string): string {
+  return hlsFileUrl(id, 'master.m3u8')
+}
+
+// A still image from the video, for thumbnails and before playback starts.
+export function posterUrl(id: string): string {
+  return hlsFileUrl(id, 'poster.jpg')
 }
 
 // Fetches every video, newest first. Throws an Error if the request fails.
