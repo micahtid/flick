@@ -64,8 +64,11 @@ type videoStore struct {
 }
 
 // MarkReady sets a video's status to "ready", which tells the website it can
-// be played.
-func (s *videoStore) MarkReady(ctx context.Context, id uuid.UUID) error {
-	_, err := s.db.Exec(ctx, `UPDATE videos SET status = 'ready' WHERE id = $1`, id)
+// be played, and saves its length in seconds. NULLIF saves a length of 0,
+// meaning unknown, as empty (NULL).
+func (s *videoStore) MarkReady(ctx context.Context, id uuid.UUID, duration float64) error {
+	_, err := s.db.Exec(ctx,
+		`UPDATE videos SET status = 'ready', duration = NULLIF($2::double precision, 0) WHERE id = $1`,
+		id, duration)
 	return err
 }

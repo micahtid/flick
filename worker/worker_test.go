@@ -35,13 +35,16 @@ func (f *fakeQueue) Done(_ context.Context, id uuid.UUID) error {
 	return nil
 }
 
-// fakeVideos records which videos were marked ready.
+// fakeVideos records which videos were marked ready, and the last length
+// saved.
 type fakeVideos struct {
-	ready []uuid.UUID
+	ready    []uuid.UUID
+	duration float64
 }
 
-func (f *fakeVideos) MarkReady(_ context.Context, id uuid.UUID) error {
+func (f *fakeVideos) MarkReady(_ context.Context, id uuid.UUID, duration float64) error {
 	f.ready = append(f.ready, id)
+	f.duration = duration
 	return nil
 }
 
@@ -55,27 +58,31 @@ func newTestWorker(convertErr error) (*worker, *fakeQueue, *fakeVideos, Job) {
 		queue:   queue,
 		videos:  videos,
 		dataDir: "/data",
-		convert: func(context.Context, string, string) error { return convertErr },
+		convert: func(context.Context, string, string) (float64, error) { return 0, convertErr },
 	}
 	return w, queue, videos, job
 }
 
-// A job that converts cleanly marks its video ready and the job done.
+// A job that converts cleanly marks its video ready with its length, and the
+// job done.
 func TestNextDoesJob(t *testing.T) {
 	w, queue, videos, job := newTestWorker(nil)
 
 	// Check the paths the conversion is given, too.
-	var gotIn, gotOut string
-	w.convert = func(_ context.Context, in, out string) error {
-		gotIn, gotOut = in, out
-		return nil
+	var gotIn, gotDir string
+	w.convert = func(_ context.Context, in, dir string) (float64, error) {
+		gotIn, gotDir = in, dir
+		return 12.5, nil
 	}
 
 	if !w.next(context.Background()) {
 		t.Fatal("next = false, want true when a job is waiting")
 	}
-	if gotIn != w.uploadPath(job.VideoID) || gotOut != w.convertedPath(job.VideoID) {
-		t.Errorf("converted %q to %q, want the upload to its 720p copy", gotIn, gotOut)
+	if gotIn != w.uploadPath(job.VideoID) || gotDir != w.hlsDir(job.VideoID) {
+		t.Errorf("converted %q into %q, want the upload into its HLS folder", gotIn, gotDir)
+	}
+	if videos.duration != 12.5 {
+		t.Errorf("duration = %v, want 12.5", videos.duration)
 	}
 	if len(videos.ready) != 1 || videos.ready[0] != job.VideoID {
 		t.Errorf("ready videos = %v, want [%s]", videos.ready, job.VideoID)

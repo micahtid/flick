@@ -1,6 +1,7 @@
 // Package main is the Flick conversion worker. It claims jobs from the queue
-// one at a time and converts each video to 720p with FFmpeg. Run several
-// copies to convert several videos at once.
+// one at a time and converts each video to HLS with FFmpeg: 1080p, 720p and
+// 360p versions cut into 4-second segments, for adaptive streaming. Run
+// several copies to convert several videos at once.
 package main
 
 import (
@@ -45,7 +46,7 @@ func run() error {
 		queue:   &queueClient{url: queueURL, http: &http.Client{Timeout: 10 * time.Second}},
 		videos:  &videoStore{db: db},
 		dataDir: dataDir,
-		convert: convertTo720p,
+		convert: convertToHLS,
 	}
 
 	log.Printf("worker started, asking %s for jobs", queueURL)
