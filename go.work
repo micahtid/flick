@@ -4,6 +4,7 @@ use (
 	./api
 	./cache
 	./ingest
+	./pkg/chunk
 	./queue
 	./storage
 	./worker
