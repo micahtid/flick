@@ -9,7 +9,7 @@ export default defineConfig({
 
   // While coding, pass /api requests to the Go API on port 8080, removing the
   // /api part first. This matches what Nginx does once deployed. /hls
-  // requests go to Nginx on port 80, which passes them to the API.
+  // requests go to Nginx on port 80, which passes them to the cache.
   server: {
     proxy: {
       '/api': {

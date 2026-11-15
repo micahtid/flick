@@ -1,7 +1,8 @@
 // Functions for talking to the Go API, and the addresses of each video's
 // files. API requests go to /api/..., and Nginx (or Vite while coding) passes
-// them on to the API. Video files are under /hls/..., which Nginx also
-// passes to the API, and the API reads them from the storage nodes.
+// them on to the API. Video files are under /hls/..., which Nginx passes to
+// the cache. The cache fetches any file it doesn't have from the API, which
+// reads it from the storage nodes.
 
 import { titleCase } from './format'
 

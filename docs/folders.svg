@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1308 968" width="1308" height="968" role="img" aria-label="How Flick&#x27;s folders and files connect">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1308 1168" width="1308" height="1168" role="img" aria-label="How Flick&#x27;s folders and files connect">
   <style>
     text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 14px; fill: #1f2328; text-anchor: middle; dominant-baseline: central; }
     .sub { font-size: 12px; fill: #57606a; }
@@ -10,6 +10,7 @@
     .worker { fill: #d3efdc; } .p-worker { fill: #f0f9f3; }
     .storage { fill: #ffd8e4; } .p-storage { fill: #fff3f7; }
     .chunk { fill: #fff1b8; } .p-chunk { fill: #fffbe6; }
+    .cache { fill: #e6f2c2; } .p-cache { fill: #f8fbea; }
     .ext { fill: #eaeef2; } .p-ext { fill: #f6f8fa; }
     .ln { fill: none; stroke: #6e7781; stroke-width: 1.6; stroke-linecap: round; }
     .head { fill: #6e7781; }
@@ -23,6 +24,7 @@
       .worker { fill: #326343; } .p-worker { fill: #253a2d; }
       .storage { fill: #7a3a52; } .p-storage { fill: #3d2630; }
       .chunk { fill: #6b5a1e; } .p-chunk { fill: #3a3320; }
+      .cache { fill: #55612a; } .p-cache { fill: #33391f; }
       .ext { fill: #3d444d; } .p-ext { fill: #30363d; }
       .ln { stroke: #a0a8b0; }
       .head { fill: #a0a8b0; }
@@ -37,50 +39,57 @@
   <!-- Folders (drawn first so everything else sits on top) -->
   <rect class="p-web" x="91" y="24" width="248" height="136" rx="14"/><text class="folder" x="109" y="48">web/</text>
   <rect class="p-nginx" x="91" y="224" width="248" height="136" rx="14"/><text class="folder" x="109" y="248">nginx/</text>
-  <rect class="p-api" x="24" y="424" width="390" height="280" rx="14"/><text class="folder" x="42" y="448">api/</text>
-  <rect class="p-queue" x="555" y="568" width="198" height="256" rx="14"/><text class="folder" x="573" y="592">queue/</text>
-  <rect class="p-worker" x="894" y="424" width="390" height="280" rx="14"/><text class="folder" x="912" y="448">worker/</text>
+  <rect class="p-cache" x="189" y="424" width="198" height="136" rx="14"/><text class="folder" x="207" y="448">cache/</text>
+  <rect class="p-api" x="24" y="624" width="390" height="280" rx="14"/><text class="folder" x="42" y="648">api/</text>
+  <rect class="p-queue" x="555" y="768" width="198" height="256" rx="14"/><text class="folder" x="573" y="792">queue/</text>
+  <rect class="p-worker" x="894" y="624" width="390" height="280" rx="14"/><text class="folder" x="912" y="648">worker/</text>
   <rect class="p-storage" x="531" y="224" width="246" height="136" rx="14"/><text class="folder" x="549" y="248">storage/</text>
-  <rect class="p-chunk" x="555" y="424" width="198" height="132" rx="14"/><text class="folder" x="573" y="448">pkg/chunk/</text>
+  <rect class="p-chunk" x="555" y="624" width="198" height="132" rx="14"/><text class="folder" x="573" y="648">pkg/chunk/</text>
 
   <!-- Lines. Each one is a single straight segment. -->
   <path class="ln" d="M215 132 V276" marker-end="url(#a)"/>
-  <path class="ln" d="M215 332 V476" marker-end="url(#a)"/>
-  <path class="ln" d="M390 504 H579" marker-end="url(#a)"/>
-  <path class="ln" d="M918 504 H729" marker-end="url(#a)"/>
-  <path class="ln" d="M126 532 V620" marker-end="url(#a)"/>
-  <path class="ln" d="M312 532 V620" marker-end="url(#a)"/>
-  <path class="ln" d="M996 532 V620" marker-end="url(#a)"/>
-  <path class="ln" d="M1182 532 V620" marker-end="url(#a)"/>
-  <path class="ln" d="M390 648 H579" marker-end="url(#a)"/>
-  <path class="ln" d="M918 648 H729" marker-end="url(#a)"/>
-  <path class="ln" d="M654 676 V740" marker-end="url(#a)"/>
-  <path class="ln" d="M654 476 V332" marker-end="url(#a)"/>
-  <path class="ln" d="M126 676 V888" marker-end="url(#a)"/>
-  <path class="ln" d="M654 796 V888" marker-end="url(#a)"/>
-  <path class="ln" d="M1182 676 V888" marker-end="url(#a)"/>
+  <path class="ln" d="M150 332 V676" marker-end="url(#a)"/>
+  <path class="ln" d="M288 332 V476" marker-end="url(#a)"/>
+  <path class="ln" d="M288 532 V676" marker-end="url(#a)"/>
+  <path class="ln" d="M390 704 H579" marker-end="url(#a)"/>
+  <path class="ln" d="M918 704 H729" marker-end="url(#a)"/>
+  <path class="ln" d="M126 732 V820" marker-end="url(#a)"/>
+  <path class="ln" d="M312 732 V820" marker-end="url(#a)"/>
+  <path class="ln" d="M996 732 V820" marker-end="url(#a)"/>
+  <path class="ln" d="M1182 732 V820" marker-end="url(#a)"/>
+  <path class="ln" d="M390 848 H579" marker-end="url(#a)"/>
+  <path class="ln" d="M918 848 H729" marker-end="url(#a)"/>
+  <path class="ln" d="M654 876 V940" marker-end="url(#a)"/>
+  <path class="ln" d="M654 676 V332" marker-end="url(#a)"/>
+  <path class="ln" d="M126 876 V1088" marker-end="url(#a)"/>
+  <path class="ln" d="M654 996 V1088" marker-end="url(#a)"/>
+  <path class="ln" d="M1182 876 V1088" marker-end="url(#a)"/>
   <text class="sub" x="225" y="192" style="text-anchor: start">HTTP</text>
-  <text class="sub" x="484.5" y="490">Saves and Reads Files</text>
-  <text class="sub" x="823.5" y="490">Saves and Reads Files</text>
-  <text class="sub" x="664" y="404" style="text-anchor: start">Sends Chunks and Map Changes</text>
-  <text class="sub" x="484.5" y="634">Adds Jobs</text>
-  <text class="sub" x="823.5" y="634">Claims Jobs</text>
-  <text class="sub" x="136" y="796" style="text-anchor: start">videos Table</text>
-  <text class="sub" x="664" y="856" style="text-anchor: start">jobs Table</text>
-  <text class="sub" x="1172" y="796" style="text-anchor: end">Marks Videos Ready</text>
+  <text class="sub" x="140" y="392" style="text-anchor: end">/api</text>
+  <text class="sub" x="298" y="392" style="text-anchor: start">/hls</text>
+  <text class="sub" x="298" y="592" style="text-anchor: start">Fetches Files</text>
+  <text class="sub" x="484.5" y="690">Saves and Reads Files</text>
+  <text class="sub" x="823.5" y="690">Saves and Reads Files</text>
+  <text class="sub" x="664" y="492" style="text-anchor: start">Sends Chunks and Map Changes</text>
+  <text class="sub" x="484.5" y="834">Adds Jobs</text>
+  <text class="sub" x="823.5" y="834">Claims Jobs</text>
+  <text class="sub" x="136" y="996" style="text-anchor: start">videos Table</text>
+  <text class="sub" x="664" y="1056" style="text-anchor: start">jobs Table</text>
+  <text class="sub" x="1172" y="996" style="text-anchor: end">Marks Videos Ready</text>
 
   <!-- Boxes -->
   <rect class="web" x="115" y="76" width="200" height="56" rx="10"/><text x="215" y="95">api.ts, Player.tsx</text><text class="sub" x="215" y="113">Uploads, lists and plays.</text>
   <rect class="nginx" x="115" y="276" width="200" height="56" rx="10"/><text x="215" y="295">nginx.conf</text><text class="sub" x="215" y="313">Forwards /api and /hls.</text>
-  <rect class="api" x="48" y="476" width="342" height="56" rx="10"/><text x="219" y="495">videos.go</text><text class="sub" x="219" y="513">Handles each request.</text>
-  <rect class="api" x="48" y="620" width="156" height="56" rx="10"/><text x="126" y="639">db.go</text><text class="sub" x="126" y="657">videoStore</text>
-  <rect class="api" x="234" y="620" width="156" height="56" rx="10"/><text x="312" y="639">queue.go</text><text class="sub" x="312" y="657">queueClient</text>
+  <rect class="cache" x="213" y="476" width="150" height="56" rx="10"/><text x="288" y="495">lru.go, hls.go</text><text class="sub" x="288" y="513">Keeps recent segments.</text>
+  <rect class="api" x="48" y="676" width="342" height="56" rx="10"/><text x="219" y="695">videos.go</text><text class="sub" x="219" y="713">Handles each request.</text>
+  <rect class="api" x="48" y="820" width="156" height="56" rx="10"/><text x="126" y="839">db.go</text><text class="sub" x="126" y="857">videoStore</text>
+  <rect class="api" x="234" y="820" width="156" height="56" rx="10"/><text x="312" y="839">queue.go</text><text class="sub" x="312" y="857">queueClient</text>
   <rect class="storage" x="555" y="276" width="198" height="56" rx="10"/><text x="654" y="295">chunks.go, cluster.go</text><text class="sub" x="654" y="313">Saves chunks and shares a map.</text>
-  <rect class="chunk" x="579" y="476" width="150" height="56" rx="10"/><text x="654" y="495">chunk.go, files.go</text><text class="sub" x="654" y="513">Splits and joins files.</text>
-  <rect class="queue" x="579" y="620" width="150" height="56" rx="10"/><text x="654" y="639">jobs.go</text><text class="sub" x="654" y="657">Hands out jobs.</text>
-  <rect class="queue" x="579" y="740" width="150" height="56" rx="10"/><text x="654" y="759">db.go</text><text class="sub" x="654" y="777">jobStore</text>
-  <rect class="worker" x="918" y="476" width="342" height="56" rx="10"/><text x="1089" y="495">worker.go, hls.go</text><text class="sub" x="1089" y="513">Converts to HLS with FFmpeg.</text>
-  <rect class="worker" x="918" y="620" width="156" height="56" rx="10"/><text x="996" y="639">queue.go</text><text class="sub" x="996" y="657">queueClient</text>
-  <rect class="worker" x="1104" y="620" width="156" height="56" rx="10"/><text x="1182" y="639">db.go</text><text class="sub" x="1182" y="657">videoStore</text>
-  <rect class="ext" x="48" y="888" width="1212" height="56" rx="10"/><text x="654" y="907">Postgres</text><text class="sub" x="654" y="925">videos, jobs and files tables</text>
+  <rect class="chunk" x="579" y="676" width="150" height="56" rx="10"/><text x="654" y="695">chunk.go, files.go</text><text class="sub" x="654" y="713">Splits and joins files.</text>
+  <rect class="queue" x="579" y="820" width="150" height="56" rx="10"/><text x="654" y="839">jobs.go</text><text class="sub" x="654" y="857">Hands out jobs.</text>
+  <rect class="queue" x="579" y="940" width="150" height="56" rx="10"/><text x="654" y="959">db.go</text><text class="sub" x="654" y="977">jobStore</text>
+  <rect class="worker" x="918" y="676" width="342" height="56" rx="10"/><text x="1089" y="695">worker.go, hls.go</text><text class="sub" x="1089" y="713">Converts to HLS with FFmpeg.</text>
+  <rect class="worker" x="918" y="820" width="156" height="56" rx="10"/><text x="996" y="839">queue.go</text><text class="sub" x="996" y="857">queueClient</text>
+  <rect class="worker" x="1104" y="820" width="156" height="56" rx="10"/><text x="1182" y="839">db.go</text><text class="sub" x="1182" y="857">videoStore</text>
+  <rect class="ext" x="48" y="1088" width="1212" height="56" rx="10"/><text x="654" y="1107">Postgres</text><text class="sub" x="654" y="1125">videos, jobs and files tables</text>
 </svg>

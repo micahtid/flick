@@ -1,6 +1,6 @@
 # API
 
-Saves uploads on the storage nodes, records them in Postgres, and asks the queue to convert them. It also sends HLS files to the browser.
+Saves uploads on the storage nodes, records them in Postgres, and asks the queue to convert them. It also sends HLS files to the cache.
 
 ## Startup
 
@@ -14,7 +14,7 @@ Saves uploads on the storage nodes, records them in Postgres, and asks the queue
 | --- | --- |
 | `POST /videos` | `201` with the new video. `400` for a bad form, `413` for a file over 2 GB, and `503` if the queue is full. |
 | `GET /videos` | `200` with every video, newest first. |
-| `GET /files/hls/<id>/<file>` | `200` with the HLS file. `404` if there's no such file. Nginx forwards `/hls/...` requests here. |
+| `GET /files/hls/<id>/<file>` | `200` with the HLS file. `404` if there's no such file. The cache asks for `/hls/...` files here. |
 
 ## Configuration
 

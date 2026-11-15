@@ -1,6 +1,6 @@
 package main
 
-// This file sends the workers' HLS files to the browser. Nginx forwards
+// This file sends the workers' HLS files to the cache. The cache asks for
 // /hls/... here as /files/hls/..., and each file is rebuilt from its chunks on
 // the storage nodes.
 

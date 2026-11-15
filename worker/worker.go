@@ -174,7 +174,8 @@ func uploadPath(id uuid.UUID) string {
 }
 
 // hlsPath is where a video's HLS files go in the file store, such as
-// hls/<id>. Nginx sends /hls/<id>/... to the API, which reads them from there.
+// hls/<id>. The cache fetches /hls/<id>/... from the API, which reads them
+// from there.
 func hlsPath(id uuid.UUID) string {
 	return "hls/" + id.String()
 }
