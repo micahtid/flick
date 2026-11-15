@@ -13,8 +13,9 @@ RUN npm ci
 COPY web/ .
 RUN npm run build
 
-# Stage 2 is Nginx, which serves the built site, forwards /api requests to
-# the Go API, and forwards /hls requests to the cache (see nginx.conf).
+# Stage 2 is Nginx, which serves the built site, forwards /api requests and
+# chat to the Go API, and forwards /hls requests to the cache (see
+# nginx.conf).
 FROM nginx:1.27-alpine
 COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=web /web/dist /usr/share/nginx/html

@@ -1,10 +1,10 @@
-# `docker compose up --build` starts the Phase 6 stack (db, api, queue,
-# worker, nginx, three storage nodes, and the cache). Add `--scale worker=2`
-# to run two workers. `docker compose --profile full up --build` starts all 13
-# containers.
+# `docker compose up --build` starts the Phase 7 stack (db, api, queue,
+# worker, nginx, three storage nodes, the cache, Redis, and the ingest
+# service). Add `--scale worker=2` to run two workers.
+# `docker compose --profile full up --build` starts all 13 containers.
 
-# This lists the storage nodes. The API, the worker and the nodes themselves
-# all read it, so it's written once here.
+# This lists the storage nodes. The API, the worker, the ingest service and
+# the nodes themselves all read it, so it's written once here.
 x-storage-nodes: &storage-nodes http://node1:9001,http://node2:9002,http://node3:9003
 
 # Every storage node is built the same way. Each one sets its own name,
@@ -31,8 +31,9 @@ services:
       DATABASE_URL: postgres://postgres:flick@db:5432/postgres?sslmode=disable
       QUEUE_URL: http://queue:8081
       STORAGE_NODES: *storage-nodes
+      REDIS_URL: redis://redis:6379
     ports: ["8080:8080"]
-    depends_on: [db, queue, node1, node2, node3]
+    depends_on: [db, queue, node1, node2, node3, redis]
 
   # Nginx sends /hls requests to the cache, which fetches any file it doesn't
   # have from the API.
@@ -88,17 +89,23 @@ services:
     ports: ["8082:8082"]
     depends_on: [api]
 
-  # These services are for later phases. They only start with `--profile full`.
+  # These services start in Phase 7. Redis passes each chat message to every
+  # copy of the API. The ingest service takes streams from OBS on port 1935,
+  # and saves them on the storage nodes. It also needs the API, which creates
+  # the videos and files tables.
   redis:
     image: redis:7
-    profiles: [full]
     ports: ["6379:6379"]
 
   ingest:
-    build: ./ingest
-    profiles: [full]
+    build: { context: ., dockerfile: ingest/Dockerfile }
+    environment:
+      DATABASE_URL: postgres://postgres:flick@db:5432/postgres?sslmode=disable
+      STORAGE_NODES: *storage-nodes
     ports: ["1935:1935"]
+    depends_on: [db, api, node1, node2, node3]
 
+  # These services are for later phases. They only start with `--profile full`.
   prometheus:
     image: prom/prometheus:v3.5.0
     profiles: [full]
