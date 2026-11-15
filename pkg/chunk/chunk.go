@@ -1,6 +1,8 @@
 // Package chunk stores files on the storage nodes. It cuts each file into
-// 4 MB chunks, sends every chunk to all the nodes, and puts the chunks back
-// together when the file is read. The API and the workers both use it.
+// 4 MB chunks, sends every chunk to the nodes, and records which nodes saved
+// it in the nodes' chunk map. When the file is read, it asks the map
+// where each chunk is and puts the chunks back together. The API and the
+// workers both use it.
 package chunk
 
 import (
@@ -8,6 +10,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -21,6 +24,21 @@ import (
 // a file is usually smaller.
 const Size = 4 << 20
 
+// These set how long Put keeps trying to record a chunk in the map. An
+// election usually takes a second or two, so 10 tries is plenty.
+const (
+	recordTries = 10
+	recordWait  = time.Second
+)
+
+// mapChange is one update to the chunk map. It matches change in
+// storage/fsm.go.
+type mapChange struct {
+	Op      string   `json:"op"`
+	ChunkID string   `json:"chunk_id"`
+	Nodes   []string `json:"nodes"`
+}
+
 // ID is a chunk's name: the SHA-256 fingerprint of its bytes, written as 64
 // hex characters. Because the name is the fingerprint, a node can check a
 // chunk isn't damaged with nothing else stored.
@@ -33,6 +51,9 @@ func ID(data []byte) string {
 type Client struct {
 	nodes []string // These are the node addresses, such as http://node1:9001.
 	http  *http.Client
+
+	mu     sync.Mutex           // Requests run at the same time, so guard restAt.
+	restAt map[string]time.Time // This is when each node last started resting.
 }
 
 // New makes a client for the nodes in a comma-separated list, the way the
@@ -42,12 +63,14 @@ func New(nodes string) *Client {
 		nodes: strings.Split(nodes, ","),
 		// Give up on a node after 30 seconds, so a stuck node can't hold an
 		// upload open forever.
-		http: &http.Client{Timeout: 30 * time.Second},
+		http:   &http.Client{Timeout: 30 * time.Second},
+		restAt: map[string]time.Time{},
 	}
 }
 
-// Put cuts r into chunks, sends each one to the nodes, and returns the chunk
-// IDs in order. Only one chunk is held in memory at a time.
+// Put cuts r into chunks, sends each one to the nodes, records it in the map,
+// and returns the chunk IDs in order. Only one chunk is held in memory at a
+// time.
 func (c *Client) Put(ctx context.Context, r io.Reader) ([]string, error) {
 	var ids []string
 	buf := make([]byte, Size)
@@ -55,7 +78,11 @@ func (c *Client) Put(ctx context.Context, r io.Reader) ([]string, error) {
 		n, err := io.ReadFull(r, buf) // Read up to 4 MB.
 		if n > 0 {
 			id := ID(buf[:n])
-			if err := c.writeAll(ctx, id, buf[:n]); err != nil {
+			saved, err := c.writeAll(ctx, id, buf[:n])
+			if err != nil {
+				return nil, err
+			}
+			if err := c.record(ctx, id, saved); err != nil {
 				return nil, err
 			}
 			ids = append(ids, id)
@@ -71,45 +98,73 @@ func (c *Client) Put(ctx context.Context, r io.Reader) ([]string, error) {
 	}
 }
 
-// writeAll sends one chunk to every node at the same time. It succeeds if most
-// of them (2 of 3) save it, so one dead node doesn't stop uploads. It waits
-// for every node to answer, since they all read from data, which Put reuses
-// for the next chunk.
-func (c *Client) writeAll(ctx context.Context, id string, data []byte) error {
-	errs := make([]error, len(c.nodes))
+// writeAll sends one chunk to the nodes, and returns the nodes that saved it.
+// It succeeds if most of them (2 of 3) save it, so one dead node doesn't stop
+// uploads. Resting nodes are skipped, and the repair loop copies the chunk to
+// them later. If too few nodes save it, the resting nodes are tried too, in
+// case one is back.
+func (c *Client) writeAll(ctx context.Context, id string, data []byte) ([]string, error) {
+	ready, resting := c.split()
+	saved, errs := c.writeTo(ctx, ready, id, data)
+	if len(saved) <= len(c.nodes)/2 {
+		more, moreErrs := c.writeTo(ctx, resting, id, data)
+		saved, errs = append(saved, more...), append(errs, moreErrs...)
+	}
+	if len(saved) <= len(c.nodes)/2 {
+		return nil, fmt.Errorf("chunk %s saved on %d of %d nodes: %w", id, len(saved), len(c.nodes), errors.Join(errs...))
+	}
+	return saved, nil
+}
+
+// writeTo sends one chunk to the given nodes at the same time, and returns
+// the nodes that saved it and the errors from the others. It waits for every
+// node to answer, since they all read from data, which Put reuses for the
+// next chunk.
+func (c *Client) writeTo(ctx context.Context, nodes []string, id string, data []byte) ([]string, []error) {
+	errs := make([]error, len(nodes))
 	var wg sync.WaitGroup
-	for i, node := range c.nodes {
+	for i, node := range nodes {
 		wg.Go(func() { errs[i] = c.write(ctx, node, id, data) })
 	}
 	wg.Wait()
 
-	var failed []error
-	for _, err := range errs {
-		if err != nil {
-			failed = append(failed, err)
+	var saved []string
+	for i, err := range errs {
+		if err == nil {
+			saved = append(saved, nodes[i])
 		}
 	}
-	if saved := len(c.nodes) - len(failed); saved <= len(c.nodes)/2 {
-		return fmt.Errorf("chunk %s saved on %d of %d nodes: %w", id, saved, len(c.nodes), errors.Join(failed...))
+	return saved, errs
+}
+
+// record tells the chunk map which nodes now hold a chunk. Any node takes the
+// request: a follower replies 307 with the leader's address, and Go's HTTP
+// client follows it by itself. While the nodes elect a new leader, they reply
+// 503, so record waits a second and tries again.
+func (c *Client) record(ctx context.Context, id string, nodes []string) error {
+	body, err := json.Marshal(mapChange{Op: "add", ChunkID: id, Nodes: nodes})
+	if err != nil {
+		return err
 	}
-	return nil
+	for range recordTries {
+		for _, node := range c.order(nil) {
+			if _, err = c.send(ctx, http.MethodPost, node, "/map", body, http.StatusNoContent); err == nil {
+				return nil
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(recordWait):
+		}
+	}
+	return fmt.Errorf("record chunk %s: %w", id, err) // This is the last error.
 }
 
 // write sends one chunk to one node.
 func (c *Client) write(ctx context.Context, node, id string, data []byte) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, node+"/chunks/"+id, bytes.NewReader(data))
-	if err != nil {
-		return err
-	}
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return err
-	}
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusNoContent {
-		return fmt.Errorf("%s replied %s", node, resp.Status)
-	}
-	return nil
+	_, err := c.send(ctx, http.MethodPut, node, "/chunks/"+id, data, http.StatusNoContent)
+	return err
 }
 
 // Get writes the chunks to w in order. For each chunk, it asks the nodes one
@@ -128,10 +183,12 @@ func (c *Client) Get(ctx context.Context, w io.Writer, ids []string) error {
 	return nil
 }
 
-// readAny fetches one chunk from the first node that has a good copy.
+// readAny fetches one chunk from the first node that has a good copy. It asks
+// the nodes the map lists first. The other nodes are still asked after them,
+// in case the map is behind.
 func (c *Client) readAny(ctx context.Context, id string) ([]byte, error) {
 	var errs []error
-	for _, node := range c.nodes {
+	for _, node := range c.order(c.holders(ctx, id)) {
 		data, err := c.read(ctx, node, id)
 		if err == nil {
 			return data, nil
@@ -141,24 +198,26 @@ func (c *Client) readAny(ctx context.Context, id string) ([]byte, error) {
 	return nil, fmt.Errorf("chunk %s on no node: %w", id, errors.Join(errs...))
 }
 
+// holders asks the chunk map which nodes hold a chunk. Any node can answer,
+// so it asks them one at a time. It returns nil if no node answers.
+func (c *Client) holders(ctx context.Context, id string) []string {
+	for _, node := range c.order(nil) {
+		body, err := c.send(ctx, http.MethodGet, node, "/map/"+id, nil, http.StatusOK)
+		if err != nil {
+			continue
+		}
+		var holders []string
+		if json.Unmarshal(body, &holders) == nil {
+			return holders
+		}
+	}
+	return nil
+}
+
 // read fetches one chunk from one node, and checks its fingerprint in case it
 // was damaged on the way.
 func (c *Client) read(ctx context.Context, node, id string) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, node+"/chunks/"+id, nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%s replied %s", node, resp.Status)
-	}
-
-	// Read one byte over the limit, so a too-big reply fails the check below.
-	data, err := io.ReadAll(io.LimitReader(resp.Body, Size+1))
+	data, err := c.send(ctx, http.MethodGet, node, "/chunks/"+id, nil, http.StatusOK)
 	if err != nil {
 		return nil, err
 	}
@@ -166,4 +225,26 @@ func (c *Client) read(ctx context.Context, node, id string) ([]byte, error) {
 		return nil, fmt.Errorf("%s sent a damaged chunk", node)
 	}
 	return data, nil
+}
+
+// send makes one request to a node, and returns the reply body. Any status
+// other than want is an error. If the node can't be reached at all, it rests.
+func (c *Client) send(ctx context.Context, method, node, path string, body []byte, want int) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, method, node+path, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		if ctx.Err() == nil { // A cancelled request isn't the node's fault.
+			c.rest(node)
+		}
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != want {
+		return nil, fmt.Errorf("%s replied %s", node+path, resp.Status)
+	}
+	// Read one byte over the limit, so a too-big chunk fails its fingerprint.
+	return io.ReadAll(io.LimitReader(resp.Body, Size+1))
 }
