@@ -6,7 +6,7 @@ import { VideoGrid, VideoGridSkeleton } from './components/VideoGrid'
 import { WatchPage } from './components/WatchPage'
 import { useWatchId } from './router'
 
-// How often to load the list again while a video is processing.
+// How often to load the list again while a video is processing or live.
 const POLL_INTERVAL_MS = 3000
 
 export default function App() {
@@ -37,16 +37,16 @@ export default function App() {
     }
   }, [reloadKey])
 
-  // While any video is still processing, load the list again every few
-  // seconds, so its status changes on screen without a refresh. Each load
+  // While any video is still processing or live, load the list again every
+  // few seconds, so its status changes on screen without a refresh. Each load
   // changes reloadKey, which runs this effect again and sets the next timer.
-  // Once nothing is processing, the timers stop.
-  const processing = videos?.some((v) => v.status === 'processing') ?? false
+  // Once every video is ready, the timers stop.
+  const changing = videos?.some((v) => v.status !== 'ready') ?? false
   useEffect(() => {
-    if (!processing) return
+    if (!changing) return
     const timer = setTimeout(reload, POLL_INTERVAL_MS)
     return () => clearTimeout(timer)
-  }, [processing, reloadKey])
+  }, [changing, reloadKey])
 
   const watching = watchId ? videos?.find((v) => v.id === watchId) : undefined
 

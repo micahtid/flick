@@ -229,6 +229,11 @@ input {
   line-height: 18px;
 }
 
+/* This is shown in place of the length while a stream is live. */
+.duration.live {
+  background: #cc0000;
+}
+
 /* This is the small label before the upload time, such as "Processing". */
 .status {
   display: inline-block;
@@ -304,7 +309,7 @@ input {
 }
 
 @media (min-width: 1000px) {
-  .watch:has(.up-next) {
+  .watch:has(.up-next, .chat) {
     grid-template-columns: minmax(0, 1fr) 340px;
   }
 }
@@ -366,6 +371,56 @@ input {
 
 .compact-card .meta {
   margin-top: 4px;
+  font-size: 12px;
+}
+
+/* ---------- Live chat ---------- */
+
+/* The chat keeps a fixed height, and its messages scroll inside it. */
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 480px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.chat-title {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.chat-messages {
+  display: grid;
+  flex: 1;
+  align-content: start;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  overflow-wrap: anywhere;
+}
+
+.chat-messages strong {
+  margin-right: 4px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.chat-form {
+  display: flex;
+  gap: 8px;
+}
+
+.chat-form .button {
+  height: 40px;
+  border-radius: 20px;
+}
+
+.chat > .meta {
   font-size: 12px;
 }
 

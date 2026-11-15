@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import type { Video } from '../api'
 import { formatDate } from '../format'
 import { watchUrl } from '../router'
+import { Chat } from './Chat'
 import { Link } from './Link'
 import { Thumbnail } from './Thumbnail'
 import { VideoMeta } from './VideoMeta'
@@ -20,16 +21,18 @@ export function WatchPage({ video, others }: Props) {
     <div className="watch">
       <div className="watch-main">
         {/* The player only appears once a worker has converted the video. The
-            list keeps reloading until then, so it appears without a refresh. */}
-        {video.status === 'ready' ? (
-          // Suspense shows an empty player box while hls.js loads.
-          <Suspense fallback={<div className="player" />}>
-            <Player key={video.id} id={video.id} />
-          </Suspense>
-        ) : (
+            list keeps reloading until then, so it appears without a refresh.
+            A stream plays as soon as it's live, and switches to the finished
+            video once it ends. */}
+        {video.status === 'processing' ? (
           <div className="player player-pending" role="status">
             <p>This Video Is Still Processing. It Will Play Here Once It's Ready.</p>
           </div>
+        ) : (
+          // Suspense shows an empty player box while hls.js loads.
+          <Suspense fallback={<div className="player" />}>
+            <Player key={video.id} id={video.id} live={video.status === 'live'} />
+          </Suspense>
         )}
         <h1 className="watch-title">{video.title}</h1>
         <div className="description">
@@ -37,22 +40,28 @@ export function WatchPage({ video, others }: Props) {
         </div>
       </div>
 
-      {others.length > 0 && (
-        <aside className="up-next" aria-label="More Videos">
-          <ul>
-            {others.map((other) => (
-              <li key={other.id}>
-                <Link href={watchUrl(other.id)} className="compact-card">
-                  <Thumbnail video={other} />
-                  <div>
-                    <h3 className="card-title">{other.title}</h3>
-                    <VideoMeta video={other} />
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </aside>
+      {/* A stream has its chat beside it. Any other video has the other
+          videos beside it. */}
+      {video.status === 'live' ? (
+        <Chat key={video.id} id={video.id} />
+      ) : (
+        others.length > 0 && (
+          <aside className="up-next" aria-label="More Videos">
+            <ul>
+              {others.map((other) => (
+                <li key={other.id}>
+                  <Link href={watchUrl(other.id)} className="compact-card">
+                    <Thumbnail video={other} />
+                    <div>
+                      <h3 className="card-title">{other.title}</h3>
+                      <VideoMeta video={other} />
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </aside>
+        )
       )}
     </div>
   )

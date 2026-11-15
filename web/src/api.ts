@@ -1,17 +1,18 @@
 // Functions for talking to the Go API, and the addresses of each video's
-// files. API requests go to /api/..., and Nginx (or Vite while coding) passes
-// them on to the API. Video files are under /hls/..., which Nginx passes to
-// the cache. The cache fetches any file it doesn't have from the API, which
-// reads it from the storage nodes.
+// files and chat. API requests and chat go to /api/..., and Nginx (or Vite
+// while coding) passes them on to the API. Video files are under /hls/...,
+// which Nginx passes to the cache. The cache fetches any file it doesn't have
+// from the API, which reads it from the storage nodes.
 
 import { titleCase } from './format'
 
-// A video is "processing" while a worker converts it, then "ready" to play.
-export type VideoStatus = 'processing' | 'ready'
+// A video is "processing" while a worker converts it, then "ready" to play. A
+// stream is "live" while it's happening, then "ready" like any other video.
+export type VideoStatus = 'processing' | 'live' | 'ready'
 
 // One video, in the shape the API sends it. duration is its length in
-// seconds, or null until a worker has converted it. created_at is a date
-// written as text, such as "2026-11-10T22:16:08Z".
+// seconds, or null until a worker has converted it or a stream has ended.
+// created_at is a date written as text, such as "2026-11-10T22:16:08Z".
 export type Video = {
   id: string
   title: string
@@ -20,7 +21,8 @@ export type Video = {
   created_at: string
 }
 
-// The address of one of the files a worker made for a video.
+// The address of one of a video's files, made by a worker or, for a stream,
+// by the ingest service.
 function hlsFileUrl(id: string, name: string): string {
   return `/hls/${encodeURIComponent(id)}/${name}`
 }
@@ -30,9 +32,28 @@ export function playlistUrl(id: string): string {
   return hlsFileUrl(id, 'master.m3u8')
 }
 
+// A stream's live playlist, which lists only the newest few segments. The
+// player loads it again every few seconds to find new ones.
+export function livePlaylistUrl(id: string): string {
+  return hlsFileUrl(id, 'live.m3u8')
+}
+
 // A still image from the video, for thumbnails and before playback starts.
 export function posterUrl(id: string): string {
   return hlsFileUrl(id, 'poster.jpg')
+}
+
+// One chat message, in the shape the API sends it.
+export type ChatMessage = {
+  name: string
+  text: string
+}
+
+// The address of a stream's chat. A WebSocket address starts with ws://, or
+// wss:// on a secure site, instead of http://.
+export function chatUrl(id: string): string {
+  const scheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${scheme}//${window.location.host}/api/chat/${encodeURIComponent(id)}`
 }
 
 // Fetches every video, newest first. Throws an Error if the request fails.
