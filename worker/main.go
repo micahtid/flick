@@ -1,7 +1,8 @@
 // Package main is the Flick conversion worker. It claims jobs from the queue
 // one at a time and converts each video to HLS with FFmpeg: 1080p, 720p and
-// 360p versions cut into 4-second segments, for adaptive streaming. Run
-// several copies to convert several videos at once.
+// 360p versions cut into 4-second segments, for adaptive streaming. Uploads
+// are read from the storage nodes, and the HLS files are saved back to them.
+// Run several copies to convert several videos at once.
 package main
 
 import (
@@ -12,6 +13,8 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/micahtid/flick/pkg/chunk"
 )
 
 // main runs the worker and exits with an error message if it fails.
@@ -32,7 +35,7 @@ func run() error {
 
 	// Read the settings from environment variables, which docker-compose.yml sets.
 	queueURL := getenv("QUEUE_URL", "http://queue:8081")
-	dataDir := getenv("DATA_DIR", "/data") // This is where the API saves uploads.
+	storageNodes := getenv("STORAGE_NODES", "http://node1:9001,http://node2:9002,http://node3:9003")
 
 	db, err := connectDB(ctx, os.Getenv("DATABASE_URL"))
 	if err != nil {
@@ -45,7 +48,7 @@ func run() error {
 		// stop the worker for good.
 		queue:   &queueClient{url: queueURL, http: &http.Client{Timeout: 10 * time.Second}},
 		videos:  &videoStore{db: db},
-		dataDir: dataDir,
+		files:   chunk.NewStore(db, chunk.New(storageNodes)),
 		convert: convertToHLS,
 	}
 

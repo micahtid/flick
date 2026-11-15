@@ -1,12 +1,15 @@
 package main
 
-// The work itself: claim a job, convert the video to HLS (see hls.go), mark
-// the video ready, and mark the job done. Then do it all again.
+// The work itself: claim a job, convert the video to HLS (see hls.go), save
+// the HLS files, mark the video ready, and mark the job done. Then do it all
+// again.
 
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -30,13 +33,21 @@ type videoRepo interface {
 	MarkReady(ctx context.Context, id uuid.UUID, duration float64) error
 }
 
+// fileStore lists the file actions the worker needs. chunk.Store in pkg/chunk
+// is the real one, which keeps files on the storage nodes. The tests use a
+// fake.
+type fileStore interface {
+	Save(ctx context.Context, path string, r io.Reader) error
+	Copy(ctx context.Context, w io.Writer, path string) error
+}
+
 // worker holds what the work loop needs. convert turns the upload at in into
 // HLS files inside dir, and returns the video's length in seconds. It's
 // convertToHLS in real use, and something quicker in the tests.
 type worker struct {
 	queue   jobQueue
 	videos  videoRepo
-	dataDir string
+	files   fileStore
 	convert func(ctx context.Context, in, dir string) (duration float64, err error)
 }
 
@@ -69,16 +80,34 @@ func (w *worker) next(ctx context.Context) bool {
 	return true
 }
 
-// process converts a job's video, marks the video ready with its length, and
-// marks the job done, in that order. If the last step fails, the job is simply done again
-// later, which does no harm.
+// process converts a job's video, saves the HLS files, marks the video ready
+// with its length, and marks the job done, in that order. If a later step
+// fails, the job is simply done again later, which does no harm.
+//
+// FFmpeg needs real files on disk, so the work happens in a temporary folder:
+// the upload is rebuilt there, converted, and the results saved to the
+// storage nodes. The folder is deleted at the end, even if a step fails.
 func (w *worker) process(ctx context.Context, job Job) error {
 	log.Printf("job %s: converting video %s", job.ID, job.VideoID)
 	start := time.Now()
 
-	duration, err := w.convert(ctx, w.uploadPath(job.VideoID), w.hlsDir(job.VideoID))
+	tmp, err := os.MkdirTemp("", "flick-job-")
 	if err != nil {
 		return err
+	}
+	defer os.RemoveAll(tmp)
+
+	in := filepath.Join(tmp, "upload.mp4")
+	if err := w.download(ctx, uploadPath(job.VideoID), in); err != nil {
+		return fmt.Errorf("fetch upload: %w", err)
+	}
+	out := filepath.Join(tmp, "hls")
+	duration, err := w.convert(ctx, in, out)
+	if err != nil {
+		return err
+	}
+	if err := w.uploadDir(ctx, out, hlsPath(job.VideoID)); err != nil {
+		return fmt.Errorf("save HLS files: %w", err)
 	}
 	if err := w.videos.MarkReady(ctx, job.VideoID, duration); err != nil {
 		return fmt.Errorf("mark video ready: %w", err)
@@ -91,16 +120,63 @@ func (w *worker) process(ctx context.Context, job Job) error {
 	return nil
 }
 
-// uploadPath is where the API saved the uploaded file, such as
-// /data/<id>.mp4.
-func (w *worker) uploadPath(id uuid.UUID) string {
-	return filepath.Join(w.dataDir, id.String()+".mp4")
+// download rebuilds the stored file at path into a new file on disk at dst.
+func (w *worker) download(ctx context.Context, path, dst string) error {
+	f, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	if err := w.files.Copy(ctx, f, path); err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
 }
 
-// hlsDir is the folder for a video's HLS files, such as /data/hls/<id>. Nginx
-// serves it to the browser as /hls/<id>/.
-func (w *worker) hlsDir(id uuid.UUID) string {
-	return filepath.Join(w.dataDir, "hls", id.String())
+// uploadDir saves every file in dir to the store under prefix, such as
+// hls/<id>/720p_000.ts. The master playlist goes last, so once it's saved,
+// every file it points to is too.
+func (w *worker) uploadDir(ctx context.Context, dir, prefix string) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	var names []string
+	for _, e := range entries {
+		if e.Name() != masterName {
+			names = append(names, e.Name())
+		}
+	}
+	names = append(names, masterName)
+
+	for _, name := range names {
+		if err := w.uploadFile(ctx, filepath.Join(dir, name), prefix+"/"+name); err != nil {
+			return fmt.Errorf("save %s: %w", name, err)
+		}
+	}
+	return nil
+}
+
+// uploadFile saves the file on disk at src to the store at path.
+func (w *worker) uploadFile(ctx context.Context, src, path string) error {
+	f, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return w.files.Save(ctx, path, f)
+}
+
+// uploadPath names an upload in the file store, such as uploads/<id>.mp4. It
+// must match the name the API saves it under.
+func uploadPath(id uuid.UUID) string {
+	return "uploads/" + id.String() + ".mp4"
+}
+
+// hlsPath is where a video's HLS files go in the file store, such as
+// hls/<id>. Nginx sends /hls/<id>/... to the API, which reads them from there.
+func hlsPath(id uuid.UUID) string {
+	return "hls/" + id.String()
 }
 
 // sleep waits for d, but returns early if ctx is cancelled.

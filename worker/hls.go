@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"math"
 	"os"
 	"os/exec"
@@ -20,9 +19,9 @@ import (
 	"strings"
 )
 
-// These are the file names inside a video's HLS folder, /data/hls/<id>/.
+// These are the file names inside a video's HLS folder.
 const (
-	masterName = "master.m3u8" // It's written last, so if it exists, every other file is finished.
+	masterName = "master.m3u8" // It's saved last, so if it exists, every other file is finished.
 	posterName = "poster.jpg"
 )
 
@@ -98,16 +97,10 @@ func masterPlaylist(src source, rs []rendition) string {
 }
 
 // convertToHLS makes every HLS file for the upload at in, inside dir. It
-// returns the video's length in seconds. Running it again on the same upload
-// overwrites the files, so a retried job starts clean.
+// returns the video's length in seconds.
 func convertToHLS(ctx context.Context, in, dir string) (duration float64, err error) {
 	src, err := probe(ctx, in)
 	if err != nil {
-		return 0, err
-	}
-	// Remove any master playlist left by an earlier attempt, so the video
-	// doesn't count as finished until this attempt is.
-	if err := os.Remove(filepath.Join(dir, masterName)); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return 0, err
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -123,7 +116,7 @@ func convertToHLS(ctx context.Context, in, dir string) (duration float64, err er
 	if err := makePoster(ctx, in, dir, src); err != nil {
 		return 0, fmt.Errorf("make poster: %w", err)
 	}
-	if err := writeFileAtomic(filepath.Join(dir, masterName), []byte(masterPlaylist(src, rs))); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, masterName), []byte(masterPlaylist(src, rs)), 0o644); err != nil {
 		return 0, fmt.Errorf("write master playlist: %w", err)
 	}
 	return src.duration, nil
@@ -241,16 +234,6 @@ func runFFmpeg(ctx context.Context, args ...string) error {
 		return fmt.Errorf("ffmpeg: %w: %s", err, bytes.TrimSpace(output))
 	}
 	return nil
-}
-
-// writeFileAtomic writes data to a temporary file, then renames it to path.
-// A rename happens all at once, so path is never seen half written.
-func writeFileAtomic(path string, data []byte) error {
-	tmp := path + ".part"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
 }
 
 // evenRound rounds x to the nearest even whole number.

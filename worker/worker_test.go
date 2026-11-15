@@ -7,8 +7,12 @@ package main
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/google/uuid"
@@ -48,38 +52,75 @@ func (f *fakeVideos) MarkReady(_ context.Context, id uuid.UUID, duration float64
 	return nil
 }
 
-// newTestWorker makes a worker with one waiting job. convertErr is what the
-// fake conversion returns.
-func newTestWorker(convertErr error) (*worker, *fakeQueue, *fakeVideos, Job) {
+// fakeFiles stands in for the file store. It keeps each file's bytes by
+// path, and records the order files were saved in.
+type fakeFiles struct {
+	data  map[string][]byte
+	saved []string
+}
+
+func (f *fakeFiles) Save(_ context.Context, path string, r io.Reader) error {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	f.data[path] = data
+	f.saved = append(f.saved, path)
+	return nil
+}
+
+func (f *fakeFiles) Copy(_ context.Context, w io.Writer, path string) error {
+	data, ok := f.data[path]
+	if !ok {
+		return errors.New("file not found")
+	}
+	_, err := w.Write(data)
+	return err
+}
+
+// newTestWorker makes a worker with one waiting job, whose upload is in the
+// store. convertErr is what the fake conversion returns.
+func newTestWorker(convertErr error) (*worker, *fakeQueue, *fakeVideos, *fakeFiles, Job) {
 	job := Job{ID: uuid.New(), VideoID: uuid.New()}
 	queue := &fakeQueue{jobs: []Job{job}}
 	videos := &fakeVideos{}
+	files := &fakeFiles{data: map[string][]byte{uploadPath(job.VideoID): []byte("upload")}}
 	w := &worker{
 		queue:   queue,
 		videos:  videos,
-		dataDir: "/data",
+		files:   files,
 		convert: func(context.Context, string, string) (float64, error) { return 0, convertErr },
 	}
-	return w, queue, videos, job
+	return w, queue, videos, files, job
 }
 
-// A job that converts cleanly marks its video ready with its length, and the
-// job done.
+// A job that converts cleanly saves its HLS files with the master playlist
+// last, marks its video ready with its length, and marks the job done.
 func TestNextDoesJob(t *testing.T) {
-	w, queue, videos, job := newTestWorker(nil)
+	w, queue, videos, files, job := newTestWorker(nil)
 
-	// Check the paths the conversion is given, too.
-	var gotIn, gotDir string
+	// The fake conversion checks it was given the upload, and writes two files.
 	w.convert = func(_ context.Context, in, dir string) (float64, error) {
-		gotIn, gotDir = in, dir
+		if data, err := os.ReadFile(in); err != nil || string(data) != "upload" {
+			t.Errorf("upload on disk = %q, %v, want the stored upload", data, err)
+		}
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return 0, err
+		}
+		for _, name := range []string{masterName, "360p_000.ts"} {
+			if err := os.WriteFile(filepath.Join(dir, name), []byte(name), 0o644); err != nil {
+				return 0, err
+			}
+		}
 		return 12.5, nil
 	}
 
 	if !w.next(context.Background()) {
 		t.Fatal("next = false, want true when a job is waiting")
 	}
-	if gotIn != w.uploadPath(job.VideoID) || gotDir != w.hlsDir(job.VideoID) {
-		t.Errorf("converted %q into %q, want the upload into its HLS folder", gotIn, gotDir)
+	prefix := hlsPath(job.VideoID) + "/"
+	if want := []string{prefix + "360p_000.ts", prefix + masterName}; !slices.Equal(files.saved, want) {
+		t.Errorf("saved %v, want %v", files.saved, want)
 	}
 	if videos.duration != 12.5 {
 		t.Errorf("duration = %v, want 12.5", videos.duration)
@@ -95,20 +136,20 @@ func TestNextDoesJob(t *testing.T) {
 // A failed conversion leaves the video processing and the job unfinished, so
 // the queue hands it out again later.
 func TestNextLeavesFailedJob(t *testing.T) {
-	w, queue, videos, _ := newTestWorker(errors.New("ffmpeg failed"))
+	w, queue, videos, files, _ := newTestWorker(errors.New("ffmpeg failed"))
 
 	if !w.next(context.Background()) {
 		t.Fatal("next = false, want true when a job was claimed")
 	}
-	if len(videos.ready) != 0 || len(queue.done) != 0 {
-		t.Errorf("ready = %v, done = %v, want both empty", videos.ready, queue.done)
+	if len(videos.ready) != 0 || len(queue.done) != 0 || len(files.saved) != 0 {
+		t.Errorf("ready = %v, done = %v, saved = %v, want all empty", videos.ready, queue.done, files.saved)
 	}
 }
 
 // With nothing waiting, next reports false so the loop waits before asking
 // again.
 func TestNextWithNoJob(t *testing.T) {
-	w, queue, _, _ := newTestWorker(nil)
+	w, queue, _, _, _ := newTestWorker(nil)
 	queue.jobs = nil
 
 	if w.next(context.Background()) {
