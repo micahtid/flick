@@ -121,13 +121,13 @@ func multipartBody(t *testing.T, parts ...formPart) (*bytes.Buffer, string) {
 	return &buf, mw.FormDataContentType()
 }
 
-// newTestServer makes a server with an empty fake database, queue and file
-// store.
+// newTestServer makes a server with an empty fake database, queue, file
+// store and chat hub.
 func newTestServer() (fakeFiles, *fakeRepo, *fakeQueue, http.Handler) {
 	repo := &fakeRepo{}
 	jobs := &fakeQueue{}
 	files := fakeFiles{}
-	return files, repo, jobs, newServer(repo, jobs, files).routes()
+	return files, repo, jobs, newServer(repo, jobs, files, newFakeHub()).routes()
 }
 
 // upload sends POST /videos straight to the handler, with no real network.

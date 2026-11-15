@@ -46,16 +46,17 @@ type fileStore interface {
 	Delete(ctx context.Context, path string) error
 }
 
-// server holds what every handler needs: the database, the job queue, and the
-// file store.
+// server holds what every handler needs: the database, the job queue, the
+// file store, and the chat hub.
 type server struct {
 	videos videoRepo
 	jobs   jobQueue
 	files  fileStore
+	chat   chatHub
 }
 
-func newServer(videos videoRepo, jobs jobQueue, files fileStore) *server {
-	return &server{videos: videos, jobs: jobs, files: files}
+func newServer(videos videoRepo, jobs jobQueue, files fileStore, chat chatHub) *server {
+	return &server{videos: videos, jobs: jobs, files: files, chat: chat}
 }
 
 // routes connects each request type and path to its handler. {path...}
@@ -66,6 +67,7 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("POST /videos", s.createVideo)
 	mux.HandleFunc("GET /videos", s.listVideos)
 	mux.HandleFunc("GET /files/hls/{path...}", s.getHLSFile)
+	mux.HandleFunc("GET /chat/{id}", s.joinChat)
 	return mux
 }
 

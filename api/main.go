@@ -1,12 +1,14 @@
 // Package main is the Flick API. It saves uploaded videos on the storage
 // nodes, records them in Postgres, asks the queue to convert them, and lists
-// them. Nginx forwards every /api request here with the /api part removed.
-// The cache also fetches the converted HLS files from here.
+// them. It also runs live chat, passing each message to every viewer through
+// Redis. Nginx forwards every /api request here with the /api part removed.
+// The cache also fetches the HLS files from here.
 package main
 
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -15,6 +17,7 @@ import (
 	"time"
 
 	"github.com/micahtid/flick/pkg/chunk"
+	"github.com/redis/go-redis/v9"
 )
 
 // main runs the API and exits with an error message if it fails.
@@ -37,6 +40,10 @@ func run() error {
 	port := getenv("PORT", "8080")
 	queueURL := getenv("QUEUE_URL", "http://queue:8081")
 	storageNodes := getenv("STORAGE_NODES", "http://node1:9001,http://node2:9002,http://node3:9003")
+	redisOpts, err := redis.ParseURL(getenv("REDIS_URL", "redis://redis:6379"))
+	if err != nil {
+		return fmt.Errorf("REDIS_URL: %w", err)
+	}
 
 	db, err := connectDB(ctx, os.Getenv("DATABASE_URL"))
 	if err != nil {
@@ -44,13 +51,18 @@ func run() error {
 	}
 	defer db.Close()
 
+	// Creating the Redis client doesn't connect yet. It connects when chat
+	// first uses it, so the rest of the API works even while Redis is down.
+	rdb := redis.NewClient(redisOpts)
+	defer rdb.Close()
+
 	// Give up on a queue request after 10 seconds, so a stuck queue can't hold
 	// an upload open forever.
 	jobs := &queueClient{url: queueURL, http: &http.Client{Timeout: 10 * time.Second}}
 
 	srv := &http.Server{
 		Addr:    ":" + port, // ":8080" means port 8080 on every network interface.
-		Handler: newServer(&videoStore{db: db}, jobs, chunk.NewStore(db, chunk.New(storageNodes))).routes(),
+		Handler: newServer(&videoStore{db: db}, jobs, chunk.NewStore(db, chunk.New(storageNodes)), &redisHub{rdb: rdb}).routes(),
 		// Drop clients that take over 10 seconds to send request headers. There
 		// is no limit on the whole request, since uploads can take minutes.
 		ReadHeaderTimeout: 10 * time.Second,

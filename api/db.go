@@ -17,7 +17,9 @@ import (
 // schema creates the tables, one statement at a time. IF NOT EXISTS makes
 // each one safe to run on every start. Each row of videos is one video. Its
 // status is "processing" until a worker has converted the file, then "ready".
-// The worker also fills in duration, the length in seconds.
+// The worker also fills in duration, the length in seconds. The ingest
+// service adds a live stream with the status "live", and sets it to "ready"
+// with its length once the stream ends.
 //
 // The ALTER adds duration to a table made before Phase 3. Videos converted
 // before then have no duration, so it stays empty (NULL) for them.
