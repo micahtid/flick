@@ -1,9 +1,13 @@
-# `docker compose up --build` starts the Phase 4 stack (db, api, queue,
+# `docker compose up --build` starts the Phase 5 stack (db, api, queue,
 # worker, nginx, and three storage nodes). Add `--scale worker=2` to run two
 # workers. `docker compose --profile full up --build` starts all 13 containers.
 
-# Every storage node is built the same way. Each one sets its own name, port
-# and volume below.
+# This lists the storage nodes. The API, the worker and the nodes themselves
+# all read it, so it's written once here.
+x-storage-nodes: &storage-nodes http://node1:9001,http://node2:9002,http://node3:9003
+
+# Every storage node is built the same way. Each one sets its own name,
+# published port and volume below, and node1 also sets BOOTSTRAP.
 x-storage: &storage
   build: ./storage
 
@@ -25,7 +29,7 @@ services:
       PORT: "8080"
       DATABASE_URL: postgres://postgres:flick@db:5432/postgres?sslmode=disable
       QUEUE_URL: http://queue:8081
-      STORAGE_NODES: http://node1:9001,http://node2:9002,http://node3:9003
+      STORAGE_NODES: *storage-nodes
     ports: ["8080:8080"]
     depends_on: [db, queue, node1, node2, node3]
 
@@ -51,24 +55,25 @@ services:
     environment:
       QUEUE_URL: http://queue:8081
       DATABASE_URL: postgres://postgres:flick@db:5432/postgres?sslmode=disable
-      STORAGE_NODES: http://node1:9001,http://node2:9002,http://node3:9003
+      STORAGE_NODES: *storage-nodes
     depends_on: [queue, db, node1, node2, node3]
 
   # These services start in Phase 4. Each node has its own volume, which acts
-  # like its own disk.
+  # like its own disk. In Phase 5 the nodes also talk to each other with Raft,
+  # on ports 10001 to 10003. node1 sets up the cluster the first time it starts.
   node1:
     <<: *storage
-    environment: { NODE_ID: node1, PORT: "9001" }
+    environment: { NODE_ID: node1, STORAGE_NODES: *storage-nodes, BOOTSTRAP: "true" }
     ports: ["9001:9001"]
     volumes: [node1data:/chunks]
   node2:
     <<: *storage
-    environment: { NODE_ID: node2, PORT: "9002" }
+    environment: { NODE_ID: node2, STORAGE_NODES: *storage-nodes }
     ports: ["9002:9002"]
     volumes: [node2data:/chunks]
   node3:
     <<: *storage
-    environment: { NODE_ID: node3, PORT: "9003" }
+    environment: { NODE_ID: node3, STORAGE_NODES: *storage-nodes }
     ports: ["9003:9003"]
     volumes: [node3data:/chunks]
 
