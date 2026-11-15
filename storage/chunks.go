@@ -1,0 +1,136 @@
+package main
+
+// This file handles the node's requests. It saves chunks, sends them back,
+// and answers /health.
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"io"
+	"io/fs"
+	"log"
+	"net/http"
+	"os"
+	"path/filepath"
+	"regexp"
+)
+
+// maxChunkBytes is the largest chunk the node accepts. It matches chunk.Size
+// in pkg/chunk.
+const maxChunkBytes = 4 << 20
+
+// validID matches a chunk ID: a SHA-256 fingerprint written as 64 hex
+// characters. Checking it also stops IDs like ".." from reaching the disk.
+var validID = regexp.MustCompile(`^[0-9a-f]{64}$`)
+
+// node saves chunks as files in dir, each named by its ID.
+type node struct {
+	dir string
+}
+
+// routes connects each request type and path to its handler.
+func (n *node) routes() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /health", n.health)
+	mux.HandleFunc("PUT /chunks/{id}", n.putChunk)
+	mux.HandleFunc("GET /chunks/{id}", n.getChunk)
+	return mux
+}
+
+// health replies "ok". Other parts use it to see if the node is alive.
+func (n *node) health(w http.ResponseWriter, _ *http.Request) {
+	io.WriteString(w, "ok")
+}
+
+// putChunk saves the request body as a chunk. The body's fingerprint must
+// match the ID, so a chunk damaged on the way is turned away.
+func (n *node) putChunk(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if !validID.MatchString(id) {
+		http.Error(w, "bad chunk id", http.StatusBadRequest)
+		return
+	}
+
+	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxChunkBytes))
+	if err != nil {
+		http.Error(w, "chunk too large", http.StatusRequestEntityTooLarge)
+		return
+	}
+	if fingerprint(data) != id {
+		http.Error(w, "chunk does not match its id", http.StatusBadRequest)
+		return
+	}
+
+	if err := writeFileAtomic(n.path(id), data); err != nil {
+		log.Printf("save chunk %s: %v", id, err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent) // 204 means saved, with nothing to send back.
+}
+
+// getChunk sends a chunk back, after checking it hasn't been damaged on disk.
+func (n *node) getChunk(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if !validID.MatchString(id) {
+		http.Error(w, "bad chunk id", http.StatusBadRequest)
+		return
+	}
+
+	data, err := os.ReadFile(n.path(id))
+	if errors.Is(err, fs.ErrNotExist) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		log.Printf("read chunk %s: %v", id, err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	if fingerprint(data) != id {
+		// Never send damaged data. The client asks another node instead.
+		log.Printf("chunk %s is damaged", id)
+		http.Error(w, "corrupt chunk", http.StatusInternalServerError)
+		return
+	}
+	w.Write(data)
+}
+
+// path is where a chunk is saved, such as /chunks/<id>.
+func (n *node) path(id string) string {
+	return filepath.Join(n.dir, id)
+}
+
+// fingerprint is the SHA-256 of data as 64 hex characters, the same as
+// chunk.ID in pkg/chunk.
+func fingerprint(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
+}
+
+// writeFileAtomic writes data to a temporary file, then renames it to path.
+// A rename happens all at once, so a crash mid-save leaves a stray .tmp file,
+// never half a chunk. Each save gets its own temporary file, so two saves of
+// the same chunk can't mix.
+func writeFileAtomic(path string, data []byte) error {
+	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+"-*.tmp")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name()) // This does nothing once the rename has worked.
+
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return err
+	}
+	// Sync waits until the bytes are really on the disk, not just in memory.
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), path)
+}
