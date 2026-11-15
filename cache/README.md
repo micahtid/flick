@@ -20,7 +20,7 @@ Keeps recently watched segments in memory, so a popular video's segments are fet
 
 | Case | Description |
 | --- | --- |
-| A Playlist Is Asked For | It's never kept. Playlists are tiny, and in Phase 7 live playlists change every few seconds, so a kept copy would go stale. |
+| A Playlist Is Asked For | It's never kept. Playlists are tiny, and a live playlist changes every 2 seconds, so a kept copy would go stale. |
 | Many Viewers Miss the Same Segment at Once | Only the first one fetches it from the API. The rest wait and share the result. |
 | A Segment Is Missing | The cache replies `404` and keeps nothing, so a video still processing can be fetched again once it's ready. |
 | The Cache Is Full | It evicts the least recently used segments until the new one fits. A segment bigger than the whole cache is sent but never kept. |

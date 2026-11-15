@@ -1,8 +1,8 @@
 // Package chunk stores files on the storage nodes. It cuts each file into
 // 4 MB chunks, sends every chunk to the nodes, and records which nodes saved
 // it in the nodes' chunk map. When the file is read, it asks the map
-// where each chunk is and puts the chunks back together. The API and the
-// workers both use it.
+// where each chunk is and puts the chunks back together. The API, the
+// workers and the ingest service all use it.
 package chunk
 
 import (

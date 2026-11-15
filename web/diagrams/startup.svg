@@ -42,6 +42,6 @@
   <rect class="web" x="260" y="24" width="180" height="148" rx="10"/><text x="350" y="89">App()</text><text class="sub" x="350" y="107">App.tsx</text>
   <rect class="web" x="496" y="24" width="180" height="60" rx="10"/><text x="586" y="45">listVideos()</text><text class="sub" x="586" y="63">api.ts</text>
   <rect class="web" x="496" y="112" width="180" height="60" rx="10"/><text x="586" y="133">useWatchId()</text><text class="sub" x="586" y="151">router.ts</text>
-  <rect class="ext" x="732" y="24" width="180" height="60" rx="10"/><text x="822" y="45">GET /api/videos</text><text class="sub" x="822" y="63">Every 3 s While Processing</text>
+  <rect class="ext" x="732" y="24" width="180" height="60" rx="10"/><text x="822" y="45">GET /api/videos</text><text class="sub" x="822" y="63">Every 3 s Until Ready</text>
   <rect class="web" x="732" y="112" width="180" height="60" rx="10"/><text x="822" y="133">Home or Watch Page</text><text class="sub" x="822" y="151">VideoGrid or WatchPage</text>
 </svg>

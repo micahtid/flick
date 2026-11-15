@@ -1,6 +1,6 @@
 # Chunk
 
-Stores files on the storage nodes for the API and the worker. It cuts each file into chunks of up to 4 MB, sends every chunk to the nodes, and records which nodes saved it in the nodes' chunk map. When the file is read, it asks the map where each chunk is and joins the chunks back together.
+Stores files on the storage nodes for the API, the worker and the ingest service. It cuts each file into chunks of up to 4 MB, sends every chunk to the nodes, and records which nodes saved it in the nodes' chunk map. When the file is read, it asks the map where each chunk is and joins the chunks back together.
 
 ## Saving and Reading
 
@@ -40,7 +40,7 @@ Stores files on the storage nodes for the API and the worker. It cuts each file 
 
 ## Additional Information: How Files Become Chunks
 
-Each file is split into its own chunks. A chunk holds up to 4 MB, so a file under 4 MB is stored as one chunk, and a larger file is split into several. Segments, the 4-second video files FFmpeg makes for playback, are stored the same way. Most are under 4 MB, so each one is usually one chunk.
+Each file is split into its own chunks. A chunk holds up to 4 MB, so a file under 4 MB is stored as one chunk, and a larger file is split into several. Segments, the short video files FFmpeg makes for playback (4 seconds each, or 2 for a stream), are stored the same way. Most are under 4 MB, so each one is usually one chunk.
 
 | File | Size | Chunks |
 | --- | --- | --- |

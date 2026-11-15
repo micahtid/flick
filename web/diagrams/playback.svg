@@ -38,6 +38,6 @@
   <!-- Boxes -->
   <rect class="web" x="24" y="24" width="184" height="60" rx="10"/><text x="116" y="45">WatchPage()</text><text class="sub" x="116" y="63">WatchPage.tsx</text>
   <rect class="web" x="272" y="24" width="184" height="60" rx="10"/><text x="364" y="45">Player()</text><text class="sub" x="364" y="63">Player.tsx</text>
-  <rect class="ext" x="520" y="24" width="184" height="60" rx="10"/><text x="612" y="45">hls.js</text><text class="sub" x="612" y="63">/hls/&lt;id&gt;/master.m3u8</text>
+  <rect class="ext" x="520" y="24" width="184" height="60" rx="10"/><text x="612" y="45">hls.js</text><text class="sub" x="612" y="63">master.m3u8 or live.m3u8</text>
   <rect class="ext" x="768" y="24" width="184" height="60" rx="10"/><text x="860" y="45">&lt;video&gt;</text><text class="sub" x="860" y="63">Browser</text>
 </svg>

@@ -75,8 +75,8 @@ func (s *server) health(w http.ResponseWriter, _ *http.Request) {
 
 // getHLSFile sends one HLS file, such as <id>/720p_003.ts. Only segments are
 // kept. A finished segment never changes, so a kept copy is always correct.
-// Playlists are tiny, and in Phase 7 live playlists change every few seconds,
-// so they always come from the API.
+// Playlists are tiny, and a live playlist changes every 2 seconds, so they
+// always come from the API.
 func (s *server) getHLSFile(w http.ResponseWriter, r *http.Request) {
 	key := r.PathValue("path")
 	if path.Ext(key) != ".ts" {
