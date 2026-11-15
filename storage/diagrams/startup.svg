@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 816 108" width="816" height="108" role="img" aria-label="How a storage node starts">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1022 284" width="1022" height="284" role="img" aria-label="How a storage node starts">
   <style>
     text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 14px; fill: #1f2328; text-anchor: middle; dominant-baseline: central; }
     .sub { font-size: 12px; fill: #57606a; }
@@ -36,12 +36,22 @@
 
   <!-- Lines. Each one is a single straight segment. -->
   <path class="ln" d="M174 54 H230" marker-end="url(#a)"/>
+  <path class="ln" d="M174 142 H230" marker-end="url(#a)"/>
+  <path class="ln" d="M174 230 H230" marker-end="url(#a)"/>
   <path class="ln" d="M380 54 H436" marker-end="url(#a)"/>
-  <path class="ln" d="M586 54 H642" marker-end="url(#a)"/>
+  <path class="ln" d="M380 142 H436" marker-end="url(#a)"/>
+  <path class="ln" d="M380 230 H436" marker-end="url(#a)"/>
+  <path class="ln" d="M586 142 H642" marker-end="url(#a)"/>
+  <path class="ln" d="M792 142 H848" marker-end="url(#a)"/>
+  <path class="ln" d="M586 230 H642" marker-end="url(#a)"/>
 
   <!-- Boxes -->
-  <rect class="storage" x="24" y="24" width="150" height="60" rx="10"/><text x="99" y="45">run()</text><text class="sub" x="99" y="63">main.go</text>
-  <rect class="storage" x="230" y="24" width="150" height="60" rx="10"/><text x="305" y="45">node</text><text class="sub" x="305" y="63">chunks.go</text>
-  <rect class="storage" x="436" y="24" width="150" height="60" rx="10"/><text x="511" y="45">routes()</text><text class="sub" x="511" y="63">chunks.go</text>
-  <rect class="ext" x="642" y="24" width="150" height="60" rx="10"/><text x="717" y="45">http.Server</text><text class="sub" x="717" y="63">Port 9001 to 9003</text>
+  <rect class="storage" x="24" y="24" width="150" height="236" rx="10"/><text x="99" y="133">run()</text><text class="sub" x="99" y="151">main.go</text>
+  <rect class="storage" x="230" y="24" width="150" height="60" rx="10"/><text x="305" y="45">parsePeers()</text><text class="sub" x="305" y="63">cluster.go</text>
+  <rect class="storage" x="230" y="112" width="150" height="60" rx="10"/><text x="305" y="133">newFSM()</text><text class="sub" x="305" y="151">fsm.go</text>
+  <rect class="storage" x="230" y="200" width="150" height="60" rx="10"/><text x="305" y="221">startRaft()</text><text class="sub" x="305" y="239">cluster.go</text>
+  <rect class="storage" x="436" y="24" width="150" height="236" rx="10"/><text x="511" y="133">node</text><text class="sub" x="511" y="151">chunks.go</text>
+  <rect class="storage" x="642" y="112" width="150" height="60" rx="10"/><text x="717" y="133">routes()</text><text class="sub" x="717" y="151">chunks.go</text>
+  <rect class="ext" x="848" y="112" width="150" height="60" rx="10"/><text x="923" y="133">http.Server</text><text class="sub" x="923" y="151">Port 9001 to 9003</text>
+  <rect class="storage" x="642" y="200" width="150" height="60" rx="10"/><text x="717" y="221">repairLoop()</text><text class="sub" x="717" y="239">repair.go</text>
 </svg>
