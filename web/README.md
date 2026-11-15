@@ -1,6 +1,6 @@
 # Web
 
-The React site. It uploads videos, lists them, and plays them with adaptive streaming.
+Uploads videos, lists them, and plays them with adaptive streaming. It's built with React.
 
 ## Startup
 
@@ -19,12 +19,12 @@ The React site. It uploads videos, lists them, and plays them with adaptive stre
 
 ## Server Requests
 
-| Request | Served By | Description |
-| --- | --- | --- |
-| `GET /api/videos` | The API | Lists every video. Sent again every 3 seconds while any video is processing. |
-| `POST /api/videos` | The API | Uploads a video, with progress shown as it sends. |
-| `GET /hls/<id>/master.m3u8` | Nginx | Starts playback. Nginx serves it straight from disk, and hls.js then fetches each quality's playlist and segments from the same folder. |
-| `GET /hls/<id>/poster.jpg` | Nginx | Shows a still image as the thumbnail and before playback starts. |
+| Request | Description |
+| --- | --- |
+| `GET /api/videos` | Lists every video. Sent again every 3 seconds while any video is processing. |
+| `POST /api/videos` | Uploads a video, with progress shown as it sends. |
+| `GET /hls/<id>/master.m3u8` | Starts playback. hls.js then fetches each quality's playlist and segments from `/hls/<id>/`. |
+| `GET /hls/<id>/poster.jpg` | Shows a still image as the thumbnail and before playback starts. |
 
 ## Development
 
@@ -35,6 +35,6 @@ The React site. It uploads videos, lists them, and plays them with adaptive stre
 | `npm run build` | Type-checks and builds the site into `dist/`, which Nginx serves. |
 | `npm run lint` | Checks the code with oxlint. |
 
-## Adaptive Streaming
+## Additional Information: Adaptive Streaming
 
-Buffering, choosing a quality and feeding the player are all handled by hls.js, using its default settings. It times each segment download and switches to the best quality the connection can keep up with. To change how it behaves, pass options to `new Hls()` in `Player.tsx`.
+hls.js handles buffering, choosing a quality and feeding the player, using its default settings. It times each segment download and switches to the best quality the connection can keep up with. To change how it behaves, pass options to `new Hls()` in `Player.tsx`.

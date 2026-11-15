@@ -1,6 +1,6 @@
 # Flick
 
-A video platform built from the storage up. Upload a video, and workers convert it in the background while you wait. It then plays with adaptive streaming, switching between 1080p, 720p and 360p as your connection speeds up or slows down.
+Flick is a video platform built from the storage up. Upload a video, and workers convert it in the background. It then plays with adaptive streaming, switching between 1080p, 720p and 360p as your connection speeds up or slows down. Every file is kept on three storage nodes, so any one node can fail and nothing is lost.
 
 ## Architecture
 
@@ -8,13 +8,15 @@ A video platform built from the storage up. Upload a video, and workers convert 
 
 | Folder | Description | Docs |
 | --- | --- | --- |
-| `web/` | The React site: upload form, video grid, and a watch page that plays HLS with `hls.js`. | [README](web/README.md) |
-| `nginx/` | Serves the site and the workers' HLS files (`/hls`), and forwards `/api` requests to the API. | |
-| `api/` | Saves uploads, lists videos, and asks the queue to convert them. | [README](api/README.md) |
+| `web/` | Shows the upload form and video grid, and plays videos with `hls.js`. | [README](web/README.md) |
+| `nginx/` | Serves the site, and forwards `/api` and `/hls` requests to the API. | |
+| `api/` | Saves uploads, lists videos, asks the queue to convert them, and sends HLS files to the browser. | [README](api/README.md) |
 | `queue/` | Hands out one job per worker, and retries jobs stuck for 5 minutes. | [README](queue/README.md) |
 | `worker/` | Converts each video to HLS in 1080p, 720p and 360p, then marks it ready. | [README](worker/README.md) |
+| `storage/` | Saves chunks on its own disk. Three nodes run at once, each with a copy of every chunk. | [README](storage/README.md) |
+| `pkg/chunk/` | Cuts files into chunks, sends them to the nodes, and joins them back into files. The API and the worker share it. | [README](pkg/chunk/README.md) |
 
-`storage/`, `cache/`, `ingest/` and `monitoring/` are placeholders for later phases. See the [roadmap](docs/phases/README.md) and the [full planned architecture](docs/architecture.svg).
+`cache/`, `ingest/` and `monitoring/` are placeholders for later phases. See the [roadmap](docs/phases/README.md) and the [full planned architecture](docs/architecture.svg).
 
 ## Running It
 
@@ -26,16 +28,14 @@ docker compose up --build
 
 Open http://localhost. Add `--scale worker=2` to run two workers.
 
-## Upgrading From Phase 2
+To see the copies at work, run `docker compose stop node2`. Videos still play and uploads still work. Run `docker compose start node2` to bring it back.
 
-Videos converted before Phase 3 only have a 720p MP4, so they won't play. Run this once to convert them again. It marks every video with no saved length as `processing` and adds a job for each:
+## Upgrading From Phase 3
+
+Videos uploaded before Phase 4 are in the old `uploads` volume, which nothing reads now, so they won't play. Run this once to remove them, then upload them again:
 
 ```sh
-docker compose exec -T db psql -U postgres -qAt \
-  -c "UPDATE videos SET status = 'processing' WHERE duration IS NULL RETURNING id" |
-while read -r id; do
-  curl -s -X POST localhost:8081/jobs -H 'Content-Type: application/json' -d "{\"video_id\": \"$id\"}"
-done
+docker compose exec -T db psql -U postgres -c \
+  "DELETE FROM videos WHERE NOT EXISTS (SELECT 1 FROM files WHERE path = 'uploads/' || videos.id || '.mp4')"
+docker volume rm flick_uploads
 ```
-
-The old `/data/<id>_720p.mp4` files are no longer used and can be deleted.

@@ -8,9 +8,8 @@ export default defineConfig({
   plugins: [react()],
 
   // While coding, pass /api requests to the Go API on port 8080, removing the
-  // /api part first. This matches what Nginx does once deployed. HLS files
-  // live in a Docker volume, so /hls requests go to Nginx on port 80, which
-  // serves them.
+  // /api part first. This matches what Nginx does once deployed. /hls
+  // requests go to Nginx on port 80, which passes them to the API.
   server: {
     proxy: {
       '/api': {

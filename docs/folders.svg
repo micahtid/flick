@@ -8,6 +8,8 @@
     .api { fill: #d8e6ff; } .p-api { fill: #f2f6ff; }
     .queue { fill: #e5dbff; } .p-queue { fill: #f7f3ff; }
     .worker { fill: #d3efdc; } .p-worker { fill: #f0f9f3; }
+    .storage { fill: #ffd8e4; } .p-storage { fill: #fff3f7; }
+    .chunk { fill: #fff1b8; } .p-chunk { fill: #fffbe6; }
     .ext { fill: #eaeef2; } .p-ext { fill: #f6f8fa; }
     .ln { fill: none; stroke: #6e7781; stroke-width: 1.6; stroke-linecap: round; }
     .head { fill: #6e7781; }
@@ -19,6 +21,8 @@
       .api { fill: #34507e; } .p-api { fill: #263147; }
       .queue { fill: #4f4180; } .p-queue { fill: #312a47; }
       .worker { fill: #326343; } .p-worker { fill: #253a2d; }
+      .storage { fill: #7a3a52; } .p-storage { fill: #3d2630; }
+      .chunk { fill: #6b5a1e; } .p-chunk { fill: #3a3320; }
       .ext { fill: #3d444d; } .p-ext { fill: #30363d; }
       .ln { stroke: #a0a8b0; }
       .head { fill: #a0a8b0; }
@@ -36,8 +40,10 @@
   <rect class="p-api" x="24" y="424" width="390" height="280" rx="14"/><text class="folder" x="42" y="448">api/</text>
   <rect class="p-queue" x="555" y="568" width="198" height="256" rx="14"/><text class="folder" x="573" y="592">queue/</text>
   <rect class="p-worker" x="894" y="424" width="390" height="280" rx="14"/><text class="folder" x="912" y="448">worker/</text>
+  <rect class="p-storage" x="555" y="224" width="198" height="136" rx="14"/><text class="folder" x="573" y="248">storage/</text>
+  <rect class="p-chunk" x="555" y="424" width="198" height="132" rx="14"/><text class="folder" x="573" y="448">pkg/chunk/</text>
 
-  <!-- Lines. Each one is a single straight segment, except the one bend from nginx.conf to the uploads volume. -->
+  <!-- Lines. Each one is a single straight segment. -->
   <path class="ln" d="M215 132 V276" marker-end="url(#a)"/>
   <path class="ln" d="M215 332 V476" marker-end="url(#a)"/>
   <path class="ln" d="M390 504 H579" marker-end="url(#a)"/>
@@ -49,14 +55,14 @@
   <path class="ln" d="M390 648 H579" marker-end="url(#a)"/>
   <path class="ln" d="M918 648 H729" marker-end="url(#a)"/>
   <path class="ln" d="M654 676 V740" marker-end="url(#a)"/>
-  <path class="ln" d="M315 304 H654 V476" marker-end="url(#a)"/>
+  <path class="ln" d="M654 476 V332" marker-end="url(#a)"/>
   <path class="ln" d="M126 676 V888" marker-end="url(#a)"/>
   <path class="ln" d="M654 796 V888" marker-end="url(#a)"/>
   <path class="ln" d="M1182 676 V888" marker-end="url(#a)"/>
   <text class="sub" x="225" y="192" style="text-anchor: start">HTTP</text>
-  <text class="sub" x="496.5" y="490">Saves Uploads</text>
-  <text class="sub" x="811.5" y="490">Writes HLS Files</text>
-  <text class="sub" x="484.5" y="290">Serves /hls Files</text>
+  <text class="sub" x="484.5" y="490">Saves and Reads Files</text>
+  <text class="sub" x="823.5" y="490">Saves and Reads Files</text>
+  <text class="sub" x="664" y="404" style="text-anchor: start">Sends Chunks</text>
   <text class="sub" x="484.5" y="634">Adds Jobs</text>
   <text class="sub" x="823.5" y="634">Claims Jobs</text>
   <text class="sub" x="136" y="796" style="text-anchor: start">videos Table</text>
@@ -65,15 +71,16 @@
 
   <!-- Boxes -->
   <rect class="web" x="115" y="76" width="200" height="56" rx="10"/><text x="215" y="95">api.ts, Player.tsx</text><text class="sub" x="215" y="113">Uploads, lists and plays.</text>
-  <rect class="nginx" x="115" y="276" width="200" height="56" rx="10"/><text x="215" y="295">nginx.conf</text><text class="sub" x="215" y="313">Forwards /api, serves /hls.</text>
+  <rect class="nginx" x="115" y="276" width="200" height="56" rx="10"/><text x="215" y="295">nginx.conf</text><text class="sub" x="215" y="313">Forwards /api and /hls.</text>
   <rect class="api" x="48" y="476" width="342" height="56" rx="10"/><text x="219" y="495">videos.go</text><text class="sub" x="219" y="513">Handles each request.</text>
   <rect class="api" x="48" y="620" width="156" height="56" rx="10"/><text x="126" y="639">db.go</text><text class="sub" x="126" y="657">videoStore</text>
   <rect class="api" x="234" y="620" width="156" height="56" rx="10"/><text x="312" y="639">queue.go</text><text class="sub" x="312" y="657">queueClient</text>
-  <rect class="ext" x="579" y="476" width="150" height="56" rx="10"/><text x="654" y="495">Uploads Volume</text><text class="sub" x="654" y="513">/data</text>
+  <rect class="storage" x="579" y="276" width="150" height="56" rx="10"/><text x="654" y="295">chunks.go</text><text class="sub" x="654" y="313">Saves and returns chunks.</text>
+  <rect class="chunk" x="579" y="476" width="150" height="56" rx="10"/><text x="654" y="495">chunk.go, files.go</text><text class="sub" x="654" y="513">Splits and joins files.</text>
   <rect class="queue" x="579" y="620" width="150" height="56" rx="10"/><text x="654" y="639">jobs.go</text><text class="sub" x="654" y="657">Hands out jobs.</text>
   <rect class="queue" x="579" y="740" width="150" height="56" rx="10"/><text x="654" y="759">db.go</text><text class="sub" x="654" y="777">jobStore</text>
   <rect class="worker" x="918" y="476" width="342" height="56" rx="10"/><text x="1089" y="495">worker.go, hls.go</text><text class="sub" x="1089" y="513">Converts to HLS with FFmpeg.</text>
   <rect class="worker" x="918" y="620" width="156" height="56" rx="10"/><text x="996" y="639">queue.go</text><text class="sub" x="996" y="657">queueClient</text>
   <rect class="worker" x="1104" y="620" width="156" height="56" rx="10"/><text x="1182" y="639">db.go</text><text class="sub" x="1182" y="657">videoStore</text>
-  <rect class="ext" x="48" y="888" width="1212" height="56" rx="10"/><text x="654" y="907">Postgres</text><text class="sub" x="654" y="925">videos and jobs tables</text>
+  <rect class="ext" x="48" y="888" width="1212" height="56" rx="10"/><text x="654" y="907">Postgres</text><text class="sub" x="654" y="925">videos, jobs and files tables</text>
 </svg>
