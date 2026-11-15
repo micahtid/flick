@@ -1,27 +1,74 @@
-// Package main is the Flick live ingest service. It answers /health so Docker
-// Compose can check it is running.
+// Package main is the Flick live ingest service. FFmpeg waits for OBS to send
+// a stream over RTMP, and converts it to HLS as it comes in: one quality, cut
+// into 2-second segments. Each segment is saved to the storage nodes as soon
+// as it's finished, so viewers watch less than 10 seconds behind. When the
+// stream ends, it becomes a normal video that anyone can replay.
 package main
 
 import (
+	"context"
 	"log"
-	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/micahtid/flick/pkg/chunk"
 )
 
-// main serves /health on the service's port until the program stops.
+// main runs the ingest service and exits with an error message if it fails.
 func main() {
-	port := getenv("PORT", "8083")
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
 
-	// /health replies "ok". It's a quick way to check the service is running.
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("ok"))
-	})
+// run starts the ingest service and keeps it taking streams until it is told
+// to stop. It returns errors instead of exiting so cleanup (like closing the
+// database) always happens.
+func run() error {
+	// ctx is cancelled when the program is told to stop: Ctrl+C, or SIGTERM,
+	// which is what `docker compose down` sends.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
-	log.Printf("ingest listening on :%s", port)
-	// ListenAndServe only returns if the server fails. log.Fatal then prints
-	// the error and exits.
-	log.Fatal(http.ListenAndServe(":"+port, mux))
+	// Read the settings from environment variables, which docker-compose.yml sets.
+	storageNodes := getenv("STORAGE_NODES", "http://node1:9001,http://node2:9002,http://node3:9003")
+
+	db, err := connectDB(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	videos := &videoStore{db: db}
+	removeCutOffStreams(ctx, videos)
+
+	in := &ingester{
+		videos: videos,
+		files:  chunk.NewStore(db, chunk.New(storageNodes)),
+		record: record,
+		poster: makePoster,
+	}
+
+	log.Printf("ingest waiting for OBS at %s", rtmpURL)
+	in.run(ctx)
+	log.Print("shutting down")
+	return nil
+}
+
+// removeCutOffStreams removes any stream still marked live. Such a stream was
+// cut off when the service crashed, and its list of segments went with the
+// temporary folder, so it can't be finished. A failure is only logged, since
+// it shouldn't stop new streams.
+func removeCutOffStreams(ctx context.Context, videos *videoStore) {
+	n, err := videos.DeleteLive(ctx)
+	if err != nil {
+		log.Printf("remove cut-off streams: %v", err)
+		return
+	}
+	if n > 0 {
+		log.Printf("removed %d cut-off streams", n)
+	}
 }
 
 // getenv returns an environment variable, or fallback if it isn't set.
