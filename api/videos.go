@@ -12,8 +12,6 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/google/uuid"
@@ -39,25 +37,35 @@ type jobQueue interface {
 	Add(ctx context.Context, videoID uuid.UUID) error
 }
 
+// fileStore lists the file actions the handlers need. chunk.Store in
+// pkg/chunk is the real one, which keeps files on the storage nodes. The tests
+// use a fake that keeps files in memory.
+type fileStore interface {
+	Save(ctx context.Context, path string, r io.Reader) error
+	Copy(ctx context.Context, w io.Writer, path string) error
+	Delete(ctx context.Context, path string) error
+}
+
 // server holds what every handler needs: the database, the job queue, and the
-// folder where video files live.
+// file store.
 type server struct {
-	videos  videoRepo
-	jobs    jobQueue
-	dataDir string
+	videos videoRepo
+	jobs   jobQueue
+	files  fileStore
 }
 
-func newServer(videos videoRepo, jobs jobQueue, dataDir string) *server {
-	return &server{videos: videos, jobs: jobs, dataDir: dataDir}
+func newServer(videos videoRepo, jobs jobQueue, files fileStore) *server {
+	return &server{videos: videos, jobs: jobs, files: files}
 }
 
-// routes connects each request type and path to its handler. {id} matches any
-// value in that spot of the path.
+// routes connects each request type and path to its handler. {path...}
+// matches the rest of the path, slashes included.
 func (s *server) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.health)
 	mux.HandleFunc("POST /videos", s.createVideo)
 	mux.HandleFunc("GET /videos", s.listVideos)
+	mux.HandleFunc("GET /files/hls/{path...}", s.getHLSFile)
 	return mux
 }
 
@@ -68,9 +76,9 @@ func (s *server) health(w http.ResponseWriter, _ *http.Request) {
 
 // createVideo handles an upload. Browsers send files as a "multipart form": a
 // body split into parts, here a "title" part and a "file" part. The file is
-// written to disk piece by piece as it arrives, so even a 2 GB upload uses
-// little memory. Converting the file takes minutes, so that's left to a
-// worker, and the reply is sent without waiting for it.
+// sent to the storage nodes one chunk at a time as it arrives, so even a 2 GB
+// upload uses little memory. Converting the file takes minutes, so that's
+// left to a worker, and the reply is sent without waiting for it.
 func (s *server) createVideo(w http.ResponseWriter, r *http.Request) {
 	// Stop reading once the body passes the limit.
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadBytes)
@@ -83,7 +91,7 @@ func (s *server) createVideo(w http.ResponseWriter, r *http.Request) {
 
 	// A random ID names both the database row and the file.
 	id := uuid.New()
-	path := s.videoPath(id)
+	path := uploadPath(id)
 	var title string
 	var gotFile bool
 
@@ -95,13 +103,16 @@ func (s *server) createVideo(w http.ResponseWriter, r *http.Request) {
 		if committed {
 			return
 		}
+		// WithoutCancel keeps the deletes going even if the client has hung
+		// up, which cancels r.Context().
+		ctx := context.WithoutCancel(r.Context())
 		if gotFile {
-			os.Remove(path)
+			if err := s.files.Delete(ctx, path); err != nil {
+				log.Printf("remove file %s: %v", path, err)
+			}
 		}
 		if rowAdded {
-			// WithoutCancel keeps the delete going even if the client has hung
-			// up, which cancels r.Context().
-			if err := s.videos.Delete(context.WithoutCancel(r.Context()), id); err != nil {
+			if err := s.videos.Delete(ctx, id); err != nil {
 				log.Printf("remove video %s: %v", id, err)
 			}
 		}
@@ -126,7 +137,7 @@ func (s *server) createVideo(w http.ResponseWriter, r *http.Request) {
 				err = badRequest{"only one file per upload"}
 			} else {
 				gotFile = true
-				err = saveFile(path, part)
+				err = s.files.Save(r.Context(), path, part)
 			}
 		}
 		part.Close()
@@ -181,9 +192,10 @@ func (s *server) listVideos(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, videos)
 }
 
-// videoPath is where an uploaded file is saved, such as /data/<id>.mp4.
-func (s *server) videoPath(id uuid.UUID) string {
-	return filepath.Join(s.dataDir, id.String()+".mp4")
+// uploadPath names an uploaded file in the file store, such as
+// uploads/<id>.mp4. The worker reads it by the same name.
+func uploadPath(id uuid.UUID) string {
+	return "uploads/" + id.String() + ".mp4"
 }
 
 // badRequest is an error caused by bad input from the client. uploadError
@@ -204,21 +216,6 @@ func readTitle(part *multipart.Part) (string, error) {
 		return "", badRequest{fmt.Sprintf("title must be at most %d bytes", maxTitleBytes)}
 	}
 	return strings.TrimSpace(string(raw)), nil
-}
-
-// saveFile copies src into a new file at path, a small piece at a time.
-func saveFile(path string, src io.Reader) error {
-	out, err := os.Create(path)
-	if err != nil {
-		return fmt.Errorf("create file: %w", err)
-	}
-	if _, err := io.Copy(out, src); err != nil {
-		out.Close()
-		return err
-	}
-	// Check Close's error too: it can be the first sign the data didn't reach
-	// the disk.
-	return out.Close()
 }
 
 // uploadError picks the reply for a failed upload: 413 if it was too large,

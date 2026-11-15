@@ -1,6 +1,6 @@
 package main
 
-// Everything that talks to Postgres: connecting, creating the table, and the
+// Everything that talks to Postgres: connecting, creating the tables, and the
 // queries the API uses.
 
 import (
@@ -11,15 +11,19 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/micahtid/flick/pkg/chunk"
 )
 
-// schema creates the videos table, one statement at a time. IF NOT EXISTS
-// makes each one safe to run on every start. Each row is one video. Its status
-// is "processing" until a worker has converted the file, then "ready". The
-// worker also fills in duration, the length in seconds.
+// schema creates the tables, one statement at a time. IF NOT EXISTS makes
+// each one safe to run on every start. Each row of videos is one video. Its
+// status is "processing" until a worker has converted the file, then "ready".
+// The worker also fills in duration, the length in seconds.
 //
 // The ALTER adds duration to a table made before Phase 3. Videos converted
 // before then have no duration, so it stays empty (NULL) for them.
+//
+// chunk.Schema creates the files table, which lists the chunks of every file
+// on the storage nodes.
 var schema = []string{
 	`CREATE TABLE IF NOT EXISTS videos (
   id         UUID PRIMARY KEY,
@@ -29,6 +33,7 @@ var schema = []string{
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 )`,
 	`ALTER TABLE videos ADD COLUMN IF NOT EXISTS duration DOUBLE PRECISION`,
+	chunk.Schema,
 }
 
 // At startup, try to reach Postgres up to 10 times, 1 second apart.

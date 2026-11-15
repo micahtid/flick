@@ -1,7 +1,7 @@
 package main
 
-// Tests for the handlers in videos.go. They use a fake in-memory database and
-// a temporary folder, so `go test` needs no Postgres or Docker.
+// Tests for the handlers in videos.go and files.go. They use a fake in-memory
+// database and file store, so `go test` needs no Postgres or Docker.
 
 import (
 	"bytes"
@@ -12,14 +12,13 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/micahtid/flick/pkg/chunk"
 )
 
 // fakeRepo stands in for the database. Set createErr to make Create fail.
@@ -64,6 +63,33 @@ func (f *fakeQueue) Add(_ context.Context, videoID uuid.UUID) error {
 	return nil
 }
 
+// fakeFiles stands in for the file store and keeps each file's bytes in a
+// map, by path.
+type fakeFiles map[string][]byte
+
+func (f fakeFiles) Save(_ context.Context, path string, r io.Reader) error {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	f[path] = data
+	return nil
+}
+
+func (f fakeFiles) Copy(_ context.Context, w io.Writer, path string) error {
+	data, ok := f[path]
+	if !ok {
+		return chunk.ErrNotFound
+	}
+	_, err := w.Write(data)
+	return err
+}
+
+func (f fakeFiles) Delete(_ context.Context, path string) error {
+	delete(f, path)
+	return nil
+}
+
 // formPart is one field of a test form. "file" is sent as a file, and any
 // other name is sent as text.
 type formPart struct{ name, value string }
@@ -95,15 +121,13 @@ func multipartBody(t *testing.T, parts ...formPart) (*bytes.Buffer, string) {
 	return &buf, mw.FormDataContentType()
 }
 
-// newTestServer makes a server with an empty fake database, an empty fake
-// queue and an empty folder. t.TempDir is deleted automatically when the test
-// ends.
-func newTestServer(t *testing.T) (*server, *fakeRepo, *fakeQueue, http.Handler) {
-	t.Helper()
+// newTestServer makes a server with an empty fake database, queue and file
+// store.
+func newTestServer() (fakeFiles, *fakeRepo, *fakeQueue, http.Handler) {
 	repo := &fakeRepo{}
 	jobs := &fakeQueue{}
-	s := newServer(repo, jobs, t.TempDir())
-	return s, repo, jobs, s.routes()
+	files := fakeFiles{}
+	return files, repo, jobs, newServer(repo, jobs, files).routes()
 }
 
 // upload sends POST /videos straight to the handler, with no real network.
@@ -116,20 +140,10 @@ func upload(h http.Handler, body *bytes.Buffer, contentType string) *httptest.Re
 	return rec
 }
 
-// dirEntries counts files in dir, to check failed uploads left none behind.
-func dirEntries(t *testing.T, dir string) int {
-	t.Helper()
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return len(entries)
-}
-
 // A good upload replies 201, saves the file, stores the trimmed title, and
 // adds a job to convert the video.
 func TestCreateVideo(t *testing.T) {
-	s, repo, jobs, h := newTestServer(t)
+	files, repo, jobs, h := newTestServer()
 	body, ct := multipartBody(t, formPart{"title", "  My clip  "}, formPart{"file", "fake video bytes"})
 
 	rec := upload(h, body, ct)
@@ -154,11 +168,7 @@ func TestCreateVideo(t *testing.T) {
 		t.Errorf("queued videos = %v, want [%s]", jobs.added, got.ID)
 	}
 
-	data, err := os.ReadFile(filepath.Join(s.dataDir, got.ID.String()+".mp4"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(data) != "fake video bytes" {
+	if data := files["uploads/"+got.ID.String()+".mp4"]; string(data) != "fake video bytes" {
 		t.Errorf("saved file = %q", data)
 	}
 }
@@ -178,7 +188,7 @@ func TestCreateVideoRejectsBadInput(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s, repo, _, h := newTestServer(t)
+			files, repo, _, h := newTestServer()
 			body, ct := multipartBody(t, tt.parts...)
 
 			rec := upload(h, body, ct)
@@ -188,8 +198,8 @@ func TestCreateVideoRejectsBadInput(t *testing.T) {
 			if len(repo.videos) != 0 {
 				t.Errorf("repo has %d videos, want 0", len(repo.videos))
 			}
-			if n := dirEntries(t, s.dataDir); n != 0 {
-				t.Errorf("data dir has %d files, want 0", n)
+			if len(files) != 0 {
+				t.Errorf("store has %d files, want 0", len(files))
 			}
 		})
 	}
@@ -197,7 +207,7 @@ func TestCreateVideoRejectsBadInput(t *testing.T) {
 
 // A body that isn't a form at all replies 400.
 func TestCreateVideoRejectsNonMultipart(t *testing.T) {
-	_, _, _, h := newTestServer(t)
+	_, _, _, h := newTestServer()
 	rec := upload(h, bytes.NewBufferString("{}"), "application/json")
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, want 400", rec.Code)
@@ -206,7 +216,7 @@ func TestCreateVideoRejectsNonMultipart(t *testing.T) {
 
 // If the database fails after the file is saved, the file is deleted.
 func TestCreateVideoRemovesFileWhenDatabaseFails(t *testing.T) {
-	s, repo, _, h := newTestServer(t)
+	files, repo, _, h := newTestServer()
 	repo.createErr = errors.New("db down")
 	body, ct := multipartBody(t, formPart{"title", "t"}, formPart{"file", "x"})
 
@@ -214,8 +224,8 @@ func TestCreateVideoRemovesFileWhenDatabaseFails(t *testing.T) {
 	if rec.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want 500", rec.Code)
 	}
-	if n := dirEntries(t, s.dataDir); n != 0 {
-		t.Errorf("data dir has %d files, want 0", n)
+	if len(files) != 0 {
+		t.Errorf("store has %d files, want 0", len(files))
 	}
 }
 
@@ -232,7 +242,7 @@ func TestCreateVideoUndoesUploadWhenQueueFails(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s, repo, jobs, h := newTestServer(t)
+			files, repo, jobs, h := newTestServer()
 			jobs.err = tt.err
 			body, ct := multipartBody(t, formPart{"title", "t"}, formPart{"file", "x"})
 
@@ -242,8 +252,8 @@ func TestCreateVideoUndoesUploadWhenQueueFails(t *testing.T) {
 			if len(repo.videos) != 0 {
 				t.Errorf("repo has %d videos, want 0", len(repo.videos))
 			}
-			if n := dirEntries(t, s.dataDir); n != 0 {
-				t.Errorf("data dir has %d files, want 0", n)
+			if len(files) != 0 {
+				t.Errorf("store has %d files, want 0", len(files))
 			}
 		})
 	}
@@ -251,7 +261,7 @@ func TestCreateVideoUndoesUploadWhenQueueFails(t *testing.T) {
 
 // An empty list is [] (not null), and videos come newest first.
 func TestListVideos(t *testing.T) {
-	_, repo, _, h := newTestServer(t)
+	_, repo, _, h := newTestServer()
 
 	get := func() *httptest.ResponseRecorder {
 		rec := httptest.NewRecorder()
@@ -272,5 +282,33 @@ func TestListVideos(t *testing.T) {
 	}
 	if len(got) != 2 || got[0].Title != "second" {
 		t.Errorf("got %+v, want newest first", got)
+	}
+}
+
+// An HLS file is sent with its content type. A missing one, or a path outside
+// hls/, replies 404.
+func TestGetHLSFile(t *testing.T) {
+	files, _, _, h := newTestServer()
+	files["hls/abc/master.m3u8"] = []byte("#EXTM3U")
+	files["uploads/abc.mp4"] = []byte("original")
+
+	get := func(path string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		return rec
+	}
+
+	rec := get("/files/hls/abc/master.m3u8")
+	if rec.Code != http.StatusOK || rec.Body.String() != "#EXTM3U" {
+		t.Errorf("got %d %q, want the playlist", rec.Code, rec.Body)
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "application/vnd.apple.mpegurl" {
+		t.Errorf("Content-Type = %q", ct)
+	}
+
+	for _, path := range []string{"/files/hls/abc/missing.ts", "/files/uploads/abc.mp4"} {
+		if rec := get(path); rec.Code != http.StatusNotFound {
+			t.Errorf("%s status = %d, want 404", path, rec.Code)
+		}
 	}
 }

@@ -1,7 +1,8 @@
-// Package main is the Flick API. It saves uploaded videos, records them in
-// Postgres, asks the queue to convert them, and lists them. Nginx forwards
-// every /api request here with the /api part removed. Nginx serves the
-// converted HLS files itself, straight from disk.
+// Package main is the Flick API. It saves uploaded videos on the storage
+// nodes, records them in Postgres, asks the queue to convert them, and lists
+// them. Nginx forwards every /api request here with the /api part removed. It
+// also forwards /hls requests, which the API answers with the converted HLS
+// files.
 package main
 
 import (
@@ -13,6 +14,8 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/micahtid/flick/pkg/chunk"
 )
 
 // main runs the API and exits with an error message if it fails.
@@ -33,14 +36,8 @@ func run() error {
 
 	// Read the settings from environment variables, which docker-compose.yml sets.
 	port := getenv("PORT", "8080")
-	dataDir := getenv("DATA_DIR", "/data") // This is where uploaded files are saved.
 	queueURL := getenv("QUEUE_URL", "http://queue:8081")
-
-	// Make sure the folder exists. 0o755 lets everyone read it but only this
-	// program write to it.
-	if err := os.MkdirAll(dataDir, 0o755); err != nil {
-		return err
-	}
+	storageNodes := getenv("STORAGE_NODES", "http://node1:9001,http://node2:9002,http://node3:9003")
 
 	db, err := connectDB(ctx, os.Getenv("DATABASE_URL"))
 	if err != nil {
@@ -54,7 +51,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:    ":" + port, // ":8080" means port 8080 on every network interface.
-		Handler: newServer(&videoStore{db: db}, jobs, dataDir).routes(),
+		Handler: newServer(&videoStore{db: db}, jobs, chunk.NewStore(db, chunk.New(storageNodes))).routes(),
 		// Drop clients that take over 10 seconds to send request headers. There
 		// is no limit on the whole request, since uploads can take minutes.
 		ReadHeaderTimeout: 10 * time.Second,
