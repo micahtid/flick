@@ -1,15 +1,20 @@
 // Package main is a Flick storage node. It saves chunks of files on its own
-// disk and hands them back. Three nodes run at once, and the API and workers
-// send every chunk to all of them, so losing one node loses nothing.
+// disk and hands them back. Three nodes run at once, and every chunk ends up
+// on all of them, so losing one node loses nothing. The nodes also share a
+// chunk map, kept the same on every node by Raft, and the leader uses it to
+// copy chunks to any node that missed them.
 package main
 
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"slices"
 	"syscall"
 	"time"
 )
@@ -30,16 +35,47 @@ func run() error {
 
 	// Read the settings from environment variables, which docker-compose.yml sets.
 	nodeID := getenv("NODE_ID", "node1")
-	port := getenv("PORT", "9001")
-	dir := getenv("CHUNK_DIR", "/chunks") // This is where chunks are saved.
+	storageNodes := getenv("STORAGE_NODES", "http://node1:9001,http://node2:9002,http://node3:9003")
+	bootstrap := os.Getenv("BOOTSTRAP") == "true" // Only node1 sets this.
+	dir := getenv("CHUNK_DIR", "/chunks")         // This is where chunks are saved.
+
+	peers, err := parsePeers(storageNodes)
+	if err != nil {
+		return err
+	}
+	i := slices.IndexFunc(peers, func(p peer) bool { return p.id == nodeID })
+	if i < 0 {
+		return fmt.Errorf("%s is not in STORAGE_NODES", nodeID)
+	}
+	self := peers[i]
 
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
+	f := newFSM()
+	r, err := startRaft(self, peers, filepath.Join(dir, "raft"), bootstrap, f)
+	if err != nil {
+		return err
+	}
+	// Stop Raft on the way out. Deferred calls run last first, so this runs
+	// after the server below has stopped.
+	defer func() { r.Shutdown().Error() }()
+
+	n := &node{
+		dir:   dir,
+		self:  self,
+		peers: peers,
+		fsm:   f,
+		raft:  r,
+		// Give up on a node after 30 seconds, so a stuck node can't hold up a
+		// repair forever.
+		http: &http.Client{Timeout: 30 * time.Second},
+	}
+	go n.repairLoop(ctx)
 
 	srv := &http.Server{
-		Addr:              ":" + port,
-		Handler:           (&node{dir: dir}).routes(),
+		Addr:              ":" + self.port,
+		Handler:           n.routes(),
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       2 * time.Minute,
 	}
@@ -48,7 +84,7 @@ func run() error {
 	// stop signal, whichever comes first.
 	errc := make(chan error, 1)
 	go func() {
-		log.Printf("%s listening on :%s", nodeID, port)
+		log.Printf("%s listening on :%s", nodeID, self.port)
 		errc <- srv.ListenAndServe()
 	}()
 	select {

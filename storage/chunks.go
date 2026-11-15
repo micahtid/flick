@@ -1,6 +1,6 @@
 package main
 
-// This file handles the node's requests. It saves chunks, sends them back,
+// This file handles the chunk requests. It saves chunks, sends them back,
 // and answers /health.
 
 import (
@@ -14,6 +14,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+
+	"github.com/hashicorp/raft"
 )
 
 // maxChunkBytes is the largest chunk the node accepts. It matches chunk.Size
@@ -24,9 +26,15 @@ const maxChunkBytes = 4 << 20
 // characters. Checking it also stops IDs like ".." from reaching the disk.
 var validID = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
-// node saves chunks as files in dir, each named by its ID.
+// node is one storage node. It saves chunks as files in dir, each named by
+// its ID, and keeps its copy of the chunk map in fsm.
 type node struct {
-	dir string
+	dir   string
+	self  peer         // This is the node itself.
+	peers []peer       // These are all the nodes, this one included.
+	fsm   *fsm         // This is the chunk map.
+	raft  *raft.Raft   // This keeps the chunk map the same on every node.
+	http  *http.Client // This talks to the other nodes.
 }
 
 // routes connects each request type and path to its handler.
@@ -35,6 +43,9 @@ func (n *node) routes() http.Handler {
 	mux.HandleFunc("GET /health", n.health)
 	mux.HandleFunc("PUT /chunks/{id}", n.putChunk)
 	mux.HandleFunc("GET /chunks/{id}", n.getChunk)
+	mux.HandleFunc("POST /map", n.postMap)
+	mux.HandleFunc("GET /map/{id}", n.getMap)
+	mux.HandleFunc("GET /status", n.status)
 	return mux
 }
 
