@@ -1,10 +1,11 @@
-# `docker compose up --build` starts the Phase 3 stack (db, api, queue,
-# worker, nginx). Add `--scale worker=2` to run two workers.
-# `docker compose --profile full up --build` starts all 13 containers.
+# `docker compose up --build` starts the Phase 4 stack (db, api, queue,
+# worker, nginx, and three storage nodes). Add `--scale worker=2` to run two
+# workers. `docker compose --profile full up --build` starts all 13 containers.
 
+# Every storage node is built the same way. Each one sets its own name, port
+# and volume below.
 x-storage: &storage
   build: ./storage
-  profiles: [full]
 
 services:
   # These services start in Phase 1.
@@ -16,26 +17,23 @@ services:
     volumes:
       - dbdata:/var/lib/postgresql/data
 
+  # Phase 4 builds the API and worker from the project folder, so they can
+  # use the shared pkg/chunk package.
   api:
-    build: ./api
+    build: { context: ., dockerfile: api/Dockerfile }
     environment:
       PORT: "8080"
       DATABASE_URL: postgres://postgres:flick@db:5432/postgres?sslmode=disable
       QUEUE_URL: http://queue:8081
+      STORAGE_NODES: http://node1:9001,http://node2:9002,http://node3:9003
     ports: ["8080:8080"]
-    volumes:
-      - uploads:/data
-    depends_on: [db, queue]
+    depends_on: [db, queue, node1, node2, node3]
 
-  # Phase 3 gives Nginx the uploads volume, read only (ro), so it can serve
-  # the HLS files the workers write to /data/hls.
+  # Nginx sends /hls requests to the API, which reads the files from the
+  # storage nodes.
   nginx:
-    build:
-      context: .
-      dockerfile: nginx/Dockerfile
+    build: { context: ., dockerfile: nginx/Dockerfile }
     ports: ["80:80"]
-    volumes:
-      - uploads:/data:ro
     depends_on: [api]
 
   # These services start in Phase 2.
@@ -47,16 +45,32 @@ services:
     depends_on: [db]
 
   # This is one service, so Compose can start as many copies as `--scale` asks for.
-  # Each copy shares the uploads volume with the API, so it can read uploads
-  # and save HLS files in /data/hls for Nginx to serve.
+  # Each copy reads uploads from the storage nodes and saves HLS files back.
   worker:
-    build: ./worker
+    build: { context: ., dockerfile: worker/Dockerfile }
     environment:
       QUEUE_URL: http://queue:8081
       DATABASE_URL: postgres://postgres:flick@db:5432/postgres?sslmode=disable
-    volumes:
-      - uploads:/data
-    depends_on: [queue, db]
+      STORAGE_NODES: http://node1:9001,http://node2:9002,http://node3:9003
+    depends_on: [queue, db, node1, node2, node3]
+
+  # These services start in Phase 4. Each node has its own volume, which acts
+  # like its own disk.
+  node1:
+    <<: *storage
+    environment: { NODE_ID: node1, PORT: "9001" }
+    ports: ["9001:9001"]
+    volumes: [node1data:/chunks]
+  node2:
+    <<: *storage
+    environment: { NODE_ID: node2, PORT: "9002" }
+    ports: ["9002:9002"]
+    volumes: [node2data:/chunks]
+  node3:
+    <<: *storage
+    environment: { NODE_ID: node3, PORT: "9003" }
+    ports: ["9003:9003"]
+    volumes: [node3data:/chunks]
 
   # These services are for later phases. They only start with `--profile full`.
   redis:
@@ -73,19 +87,6 @@ services:
     build: ./ingest
     profiles: [full]
     ports: ["1935:1935"]
-
-  node1:
-    <<: *storage
-    environment: { NODE_ID: node1, PORT: "9001" }
-    ports: ["9001:9001"]
-  node2:
-    <<: *storage
-    environment: { NODE_ID: node2, PORT: "9002" }
-    ports: ["9002:9002"]
-  node3:
-    <<: *storage
-    environment: { NODE_ID: node3, PORT: "9003" }
-    ports: ["9003:9003"]
 
   prometheus:
     image: prom/prometheus:v3.5.0
@@ -104,4 +105,6 @@ services:
 
 volumes:
   dbdata:
-  uploads:
+  node1data:
+  node2data:
+  node3data:
