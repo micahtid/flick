@@ -1,6 +1,7 @@
-# `docker compose up --build` starts the Phase 5 stack (db, api, queue,
-# worker, nginx, and three storage nodes). Add `--scale worker=2` to run two
-# workers. `docker compose --profile full up --build` starts all 13 containers.
+# `docker compose up --build` starts the Phase 6 stack (db, api, queue,
+# worker, nginx, three storage nodes, and the cache). Add `--scale worker=2`
+# to run two workers. `docker compose --profile full up --build` starts all 13
+# containers.
 
 # This lists the storage nodes. The API, the worker and the nodes themselves
 # all read it, so it's written once here.
@@ -33,12 +34,12 @@ services:
     ports: ["8080:8080"]
     depends_on: [db, queue, node1, node2, node3]
 
-  # Nginx sends /hls requests to the API, which reads the files from the
-  # storage nodes.
+  # Nginx sends /hls requests to the cache, which fetches any file it doesn't
+  # have from the API.
   nginx:
     build: { context: ., dockerfile: nginx/Dockerfile }
     ports: ["80:80"]
-    depends_on: [api]
+    depends_on: [api, cache]
 
   # These services start in Phase 2.
   queue:
@@ -77,16 +78,21 @@ services:
     ports: ["9003:9003"]
     volumes: [node3data:/chunks]
 
+  # This service starts in Phase 6. It keeps up to CACHE_MAX_MB of segments
+  # in memory, so changing the limit needs only a restart, not a rebuild.
+  cache:
+    build: ./cache
+    environment:
+      API_URL: http://api:8080
+      CACHE_MAX_MB: "500"
+    ports: ["8082:8082"]
+    depends_on: [api]
+
   # These services are for later phases. They only start with `--profile full`.
   redis:
     image: redis:7
     profiles: [full]
     ports: ["6379:6379"]
-
-  cache:
-    build: ./cache
-    profiles: [full]
-    ports: ["8082:8082"]
 
   ingest:
     build: ./ingest
