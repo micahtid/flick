@@ -5,6 +5,7 @@ use (
 	./cache
 	./ingest
 	./pkg/chunk
+	./pkg/metrics
 	./queue
 	./storage
 	./worker
