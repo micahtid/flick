@@ -1,8 +1,8 @@
 # Next Steps: Real Machines
 
-All three storage nodes run on one PC, so messages between them never really leave the computer. Real networks are messier: messages can be slow, arrive late, or vanish, and a whole machine can lose power. This step proves that Flick still works when the nodes are on separate machines.
+All three storage nodes run on one PC, so messages between them never really leave the computer. Real networks are messier: messages can be slow, arrive late or vanish, and a whole machine can lose power. This step proves that Flick still works when the nodes are on separate machines.
 
-## Step 1: Practice On A Bad Network At Home
+## Step 1: Practice on a Bad Network at Home
 
 Before using real machines, fake a bad network on your own PC. `tc` is a Linux tool that can slow down a container's network on purpose. The `nicolaka/netshoot` image has it, and `--net container:` runs it inside node2's network:
 
@@ -27,7 +27,7 @@ Watch the Flick dashboard in Grafana while you do this.
 
 **What should happen:** when node2 is cut off, the other two elect a leader if needed and keep working. When node2 is reconnected, it catches up.
 
-**If leaders keep changing again and again,** the delay is making nodes think the leader is dead. Give them more patience by raising `HeartbeatTimeout` and `ElectionTimeout` in `startRaft` in `storage/cluster.go`, for example to 2 seconds each.
+**If leaders keep changing again and again,** the delay is making nodes think the leader is dead. Give them more patience by raising `HeartbeatTimeout` and `ElectionTimeout` in `startRaft` in `storage/cluster.go`, such as to 2 seconds each.
 
 ## Step 2: Get Three Machines
 
@@ -73,7 +73,7 @@ Everything else (the API, workers, cache, Nginx, Postgres and Redis) can stay on
 - Set `x-storage-nodes` to the same list as `STORAGE_NODES` above.
 - Change the `storage` targets in `monitoring/prometheus.yml` to `10.0.0.11:9001`, `10.0.0.12:9001` and `10.0.0.13:9001`.
 
-## Step 4: Chaos With Real Machines
+## Step 4: Chaos with Real Machines
 
 Keep uploading and watching videos the whole time. Then:
 

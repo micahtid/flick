@@ -1,5 +1,5 @@
 // Package chunk stores files on the storage nodes. It cuts each file into
-// 4 MB chunks, sends every chunk to the nodes, and records which nodes saved
+// 4 MB chunks, sends every chunk to the nodes and records which nodes saved
 // it in the chunk map. The chunk map is a small table, kept by the nodes, that
 // lists the nodes holding each chunk. To read a file back, the package asks
 // the map where each chunk is and puts the chunks back together. The API, the
@@ -104,7 +104,7 @@ func (c *Client) Put(ctx context.Context, r io.Reader) ([]string, error) {
 	}
 }
 
-// writeAll sends one chunk to the nodes, and returns the nodes that saved it.
+// writeAll sends one chunk to the nodes and returns the nodes that saved it.
 // It succeeds if most of them (2 of 3) save it, so one dead node doesn't stop
 // uploads. Resting nodes are skipped, and the repair loop copies the chunk to
 // them later. If too few nodes save it, the resting nodes are tried too, in
@@ -122,7 +122,7 @@ func (c *Client) writeAll(ctx context.Context, id string, data []byte) ([]string
 	return saved, nil
 }
 
-// writeTo sends one chunk to the given nodes at the same time, and returns
+// writeTo sends one chunk to the given nodes at the same time and returns
 // the nodes that saved it and the errors from the others. It waits for every
 // node to answer, since they all read from data, which Put reuses for the
 // next chunk.
@@ -221,7 +221,7 @@ func (c *Client) holders(ctx context.Context, id string) []string {
 	return nil
 }
 
-// read fetches one chunk from one node, and checks its fingerprint in case it
+// read fetches one chunk from one node and checks its fingerprint in case it
 // was damaged on the way.
 func (c *Client) read(ctx context.Context, node, id string) ([]byte, error) {
 	data, err := c.send(ctx, http.MethodGet, node, "/chunks/"+id, nil, http.StatusOK)
@@ -234,7 +234,7 @@ func (c *Client) read(ctx context.Context, node, id string) ([]byte, error) {
 	return data, nil
 }
 
-// send makes one request to a node, and returns the reply body. Any status
+// send makes one request to a node and returns the reply body. Any status
 // other than want is an error. If the node can't be reached at all, it rests,
 // so later requests try it last.
 func (c *Client) send(ctx context.Context, method, node, path string, body []byte, want int) ([]byte, error) {

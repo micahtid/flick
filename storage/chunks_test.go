@@ -96,7 +96,7 @@ func TestGetMissingAndDamaged(t *testing.T) {
 	}
 }
 
-// The list holds every chunk saved, and skips files that aren't chunks. An
+// The list holds every chunk saved and skips files that aren't chunks. An
 // empty node lists [] rather than null.
 func TestListChunks(t *testing.T) {
 	n, h := newTestNode(t)

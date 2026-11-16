@@ -66,7 +66,7 @@ func newServer(videos videoRepo, jobs jobQueue, files fileStore, chat chatHub, v
 
 // routes connects each request type and path to its handler. {path...}
 // matches the rest of the path, slashes included. metrics.Wrap counts and
-// times every request, and Prometheus reads the numbers from /metrics.
+// times every request, and Prometheus collects the metrics from /metrics.
 func (s *server) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.health)

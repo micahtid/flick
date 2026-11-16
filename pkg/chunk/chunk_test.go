@@ -202,7 +202,7 @@ func TestGetSkipsDamagedChunk(t *testing.T) {
 	}
 }
 
-// An empty file has no chunks, and reads back empty.
+// An empty file has no chunks and reads back empty.
 func TestEmptyFile(t *testing.T) {
 	c, _, _ := newTestClient(t)
 	if got := roundTrip(t, c, nil); len(got) != 0 {

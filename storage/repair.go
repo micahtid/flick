@@ -2,7 +2,7 @@ package main
 
 // This file holds the repair loop. Every 5 seconds, the leader (the node that
 // makes every change to the chunk map) asks every node which chunks it has
-// saved, and copies each missing chunk over. This fills in a node that was
+// saved and copies each missing chunk over. This fills in a node that was
 // down while chunks were being saved, or one that lost or damaged a copy.
 
 import (
@@ -116,7 +116,7 @@ func (n *node) list(ctx context.Context, addr string) ([]string, error) {
 }
 
 // copyChunk reads a chunk from a node that holds it, saves it on every node
-// in job.to, and records the new copies in the map.
+// in job.to and records the new copies in the map.
 func (n *node) copyChunk(ctx context.Context, job copyJob) error {
 	data, err := n.fetch(ctx, job)
 	if err != nil {
@@ -149,7 +149,7 @@ func (n *node) fetch(ctx context.Context, job copyJob) ([]byte, error) {
 	return nil, fmt.Errorf("no node that's up has a good copy")
 }
 
-// request makes one request to another node, and returns the reply body. Any
+// request makes one request to another node and returns the reply body. Any
 // status other than want is an error. It's the same as send in pkg/chunk.
 func (n *node) request(ctx context.Context, method, url string, body []byte, want int) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewReader(body))

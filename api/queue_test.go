@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Add sends the video ID, and turns each queue reply into the right error:
+// Add sends the video ID and turns each queue reply into the right error:
 // none for 201, errQueueFull for 429, and a plain error for anything else.
 func TestQueueClientAdd(t *testing.T) {
 	tests := []struct {

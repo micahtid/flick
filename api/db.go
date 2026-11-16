@@ -1,6 +1,6 @@
 package main
 
-// This file talks to Postgres: it connects, creates the tables, and runs the
+// This file talks to Postgres: it connects, creates the tables and runs the
 // queries the handlers need.
 
 import (
@@ -77,7 +77,7 @@ func connectDB(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	return db, nil
 }
 
-// pingWithRetry checks that Postgres answers, and tries again until it does
+// pingWithRetry checks that Postgres answers and tries again until it does
 // or the tries run out.
 func pingWithRetry(ctx context.Context, db *pgxpool.Pool) error {
 	var err error
@@ -161,7 +161,7 @@ func (s *videoStore) List(ctx context.Context) ([]Video, error) {
 	return videos, rows.Err() // rows.Err reports any error that stopped the loop early.
 }
 
-// VideoStats is one video's numbers for the creator dashboard. WatchSeconds
+// VideoStats is one video's stats for the creator dashboard. WatchSeconds
 // is the total time everyone has spent watching it.
 type VideoStats struct {
 	ID           uuid.UUID `json:"id"`

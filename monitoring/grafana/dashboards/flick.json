@@ -464,7 +464,7 @@
       "id": 9,
       "type": "timeseries",
       "title": "Conversions",
-      "description": "Videos converted, and failed tries, in the last 5 minutes.",
+      "description": "Videos converted and failed attempts in the last 5 minutes.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"

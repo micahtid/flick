@@ -57,7 +57,7 @@ func run() error {
 
 	// The worker has no server of its own, so it runs a small one in the
 	// background for Prometheus. A failure is only logged, since the work
-	// matters more than the numbers.
+	// matters more than the metrics.
 	go func() {
 		if err := metrics.Serve(ctx, metricsPort); err != nil {
 			log.Printf("metrics server: %v", err)

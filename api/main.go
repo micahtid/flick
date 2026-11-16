@@ -1,7 +1,7 @@
 // Package main is the Flick API. It saves uploaded videos on the storage
-// nodes, records them in Postgres, asks the queue to convert them, and lists
+// nodes, records them in Postgres, asks the queue to convert them and lists
 // them. It also runs live chat, passing each message to every viewer through
-// Redis, and counts views and watch time for the creator dashboard. Nginx
+// Redis and counts views and watch time for the creator dashboard. Nginx
 // forwards every /api request here with the /api part removed. The cache also
 // fetches the HLS files from here.
 package main

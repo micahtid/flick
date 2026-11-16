@@ -4,7 +4,7 @@ import { formatDate, formatWatchTime } from '../format'
 import { watchUrl } from '../router'
 import { Link } from './Link'
 
-// The numbers load again this often. The API adds new views to them once a
+// The stats load again this often. The API adds new views to them once a
 // minute, so each update shows up here within 30 seconds.
 const RELOAD_INTERVAL_MS = 30_000
 
@@ -14,7 +14,7 @@ export function Dashboard() {
   const [stats, setStats] = useState<VideoStats[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Loads the numbers now, then again every 30 seconds while the page is open.
+  // Loads the stats now, then again every 30 seconds while the page is open.
   useEffect(() => {
     let stale = false
     function load() {
@@ -39,7 +39,7 @@ export function Dashboard() {
 
   // Draws the table, or a message if there's nothing to show yet.
   function renderStats() {
-    // Show the error only if nothing has loaded yet. If older numbers exist,
+    // Show the error only if nothing has loaded yet. If older stats exist,
     // keep showing them instead.
     if (error && !stats) {
       return (
@@ -49,7 +49,7 @@ export function Dashboard() {
         </div>
       )
     }
-    if (!stats) return null // The numbers are still loading, so show nothing.
+    if (!stats) return null // The stats are still loading, so show nothing.
     if (stats.length === 0) {
       return (
         <div className="empty">

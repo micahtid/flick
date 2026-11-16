@@ -20,7 +20,7 @@ type Props = {
 type Line = ChatMessage & { key: number }
 
 // Shows live chat beside a stream. It keeps a WebSocket open to the API, shows
-// each message as it arrives, and sends what the viewer types. Messages aren't
+// each message as it arrives and sends what the viewer types. Messages aren't
 // saved, so a viewer only sees ones sent after they joined.
 export function Chat({ id }: Props) {
   const socketRef = useRef<WebSocket | null>(null)
@@ -30,7 +30,7 @@ export function Chat({ id }: Props) {
   const [text, setText] = useState('')
   const [connected, setConnected] = useState(false)
 
-  // Joins the chat, and joins again a few seconds after the connection drops,
+  // Joins the chat and joins again a few seconds after the connection drops,
   // such as when the API restarts.
   useEffect(() => {
     let leaving = false

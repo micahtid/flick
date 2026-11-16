@@ -1,4 +1,4 @@
-// This file talks to the Go API, and gives the addresses of each video's
+// This file talks to the Go API and gives the addresses of each video's
 // files and chat. API requests and chat go to /api/..., and Nginx (or Vite
 // while coding) passes them on to the API. Video files are under /hls/...,
 // which Nginx passes to the cache. The cache fetches any file it doesn't have
@@ -22,7 +22,7 @@ export type Video = {
   created_at: string
 }
 
-// A VideoStats is one video's numbers, in the shape the API sends them for the
+// A VideoStats is one video's stats, in the shape the API sends them for the
 // creator dashboard. watch_seconds is the total time everyone has spent
 // watching it.
 export type VideoStats = {

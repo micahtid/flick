@@ -83,7 +83,7 @@ func (in *ingester) run(ctx context.Context) {
 }
 
 // take waits for OBS to connect, saves the stream's files every second while
-// it's live, and finishes it once it ends.
+// it's live and finishes it once it ends.
 //
 // FFmpeg needs real files on disk, so it writes into a temporary folder, and
 // each file is saved to the storage nodes from there. The folder is deleted
@@ -181,7 +181,7 @@ func (in *ingester) start(ctx context.Context, s *stream) error {
 }
 
 // finish saves the segments FFmpeg made since the last sync, then the
-// finished playlist, and marks the video ready with its length. If no stream
+// finished playlist and marks the video ready with its length. If no stream
 // came in, there's nothing to finish, and FFmpeg's error is returned instead.
 func (in *ingester) finish(ctx context.Context, s *stream, recordErr error) error {
 	if err := in.sync(ctx, s); err != nil {

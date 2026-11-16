@@ -162,7 +162,7 @@ func (h *redisHub) Publish(ctx context.Context, channel string, msg []byte) erro
 	return h.rdb.Publish(ctx, channel, msg).Err()
 }
 
-// Subscribe subscribes to channel in Redis, and passes on each message until
+// Subscribe subscribes to channel in Redis and passes on each message until
 // stop is called.
 func (h *redisHub) Subscribe(ctx context.Context, channel string) (<-chan []byte, func(), error) {
 	sub := h.rdb.Subscribe(ctx, channel)

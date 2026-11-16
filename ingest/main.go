@@ -1,5 +1,5 @@
 // Package main is the Flick live ingest service. FFmpeg waits for OBS to send
-// a stream over RTMP (the protocol streaming apps use), and turns it into HLS
+// a stream over RTMP (the protocol streaming apps use) and turns it into HLS
 // (HTTP Live Streaming) as it comes in: one quality, cut into 2-second
 // segments. Each segment is saved to the storage nodes as soon as it's
 // finished, so viewers watch less than 10 seconds behind. When the stream
@@ -55,7 +55,7 @@ func run() error {
 
 	// The ingest service only speaks RTMP, so it runs a small HTTP server in
 	// the background for Prometheus. A failure is only logged, since streams
-	// matter more than the numbers.
+	// matter more than the metrics.
 	go func() {
 		if err := metrics.Serve(ctx, metricsPort); err != nil {
 			log.Printf("metrics server: %v", err)

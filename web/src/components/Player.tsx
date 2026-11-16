@@ -56,7 +56,7 @@ export function Player({ id, live }: Props) {
     return () => hls.destroy() // Stop downloading when the player goes away.
   }, [id, live])
 
-  // Counts a view the first time the video plays, and adds a second of watch
+  // Counts a view the first time the video plays and adds a second of watch
   // time every second it's playing. Each 30 seconds is reported, and whatever
   // is left is reported when the player goes away or the tab is closed.
   useEffect(() => {

@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-// parsePlaylist reads each segment's name and length, in order, and skips
+// parsePlaylist reads each segment's name and length, in order and skips
 // tags it doesn't need and a segment FFmpeg hasn't finished listing.
 func TestParsePlaylist(t *testing.T) {
 	data := []byte(`#EXTM3U
@@ -85,7 +85,7 @@ seg_00001.ts
 }
 
 // A real FFmpeg waits for a stream, turns a short generated clip sent over
-// RTMP into 2-second segments, and makes a poster from the first one. It uses
+// RTMP into 2-second segments and makes a poster from the first one. It uses
 // port 1935, so it fails if something else, such as the ingest container, is
 // using it.
 func TestRecord(t *testing.T) {

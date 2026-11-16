@@ -42,7 +42,7 @@ type server struct {
 	// fetches lets viewers who miss the same segment at once share one fetch.
 	fetches singleflight.Group
 	// These count segment requests. Many requests update them at once, so
-	// they're atomic numbers, which stay correct when changed from many places.
+	// they're atomic integers, which stay correct when changed from many places.
 	hits, misses atomic.Int64
 }
 
@@ -62,7 +62,7 @@ func newServer(apiURL string, cache *lru, client *http.Client) (*server, error) 
 
 // routes connects each request type and path to its handler. {path...}
 // matches the rest of the path, slashes included. metrics.Wrap counts and
-// times every request, and Prometheus reads the numbers from /metrics.
+// times every request, and Prometheus collects the metrics from /metrics.
 func (s *server) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.health)

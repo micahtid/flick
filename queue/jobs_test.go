@@ -168,7 +168,7 @@ func TestAddJobWhenFull(t *testing.T) {
 	}
 }
 
-// Claiming hands out jobs oldest first, each counted as its first attempt,
+// Claiming returns jobs oldest first, each counted as its first attempt,
 // then replies 204 once none are left.
 func TestClaimJob(t *testing.T) {
 	repo, h := newTestServer()
@@ -194,7 +194,7 @@ func TestClaimJob(t *testing.T) {
 	}
 }
 
-// Finishing a job marks it done, and replies 400 for a bad ID and 404 for an
+// Finishing a job marks it done and replies 400 for a bad ID and 404 for an
 // unknown one.
 func TestFinishJob(t *testing.T) {
 	repo, h := newTestServer()

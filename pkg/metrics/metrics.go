@@ -1,5 +1,5 @@
 // Package metrics counts and times the requests each service handles, and
-// serves those numbers for Prometheus to collect. Every Flick service uses it,
+// serves those metrics for Prometheus to collect. Every Flick service uses it,
 // so they all report requests the same way.
 package metrics
 
@@ -15,7 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-// These are the numbers every service reports. promauto registers each one
+// These are the metrics every service reports. promauto registers each one
 // when the program starts, so Handler serves it without any more setup.
 var (
 	requests = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -74,7 +74,7 @@ func (r *statusRecorder) Unwrap() http.ResponseWriter {
 	return r.ResponseWriter
 }
 
-// Handler serves every number for Prometheus to collect. Each service serves
+// Handler serves every metric for Prometheus to collect. Each service serves
 // it at GET /metrics.
 func Handler() http.Handler {
 	return promhttp.Handler()

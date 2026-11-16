@@ -1,6 +1,6 @@
 package main
 
-// This file talks to Postgres: it connects, and adds, finishes and removes
+// This file talks to Postgres: it connects and adds, finishes and removes
 // streams. The API creates the videos table, so the ingest service only
 // changes its rows.
 
@@ -38,7 +38,7 @@ func connectDB(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	return db, nil
 }
 
-// pingWithRetry checks that Postgres answers, and tries again until it does
+// pingWithRetry checks that Postgres answers and tries again until it does
 // or the tries run out.
 func pingWithRetry(ctx context.Context, db *pgxpool.Pool) error {
 	var err error
@@ -75,7 +75,7 @@ func (s *videoStore) CreateLive(ctx context.Context, id uuid.UUID, title string)
 }
 
 // MarkReady sets a video's status to "ready", which tells the website it can
-// be played like any other video, and saves its length in seconds. NULLIF
+// be played like any other video and saves its length in seconds. NULLIF
 // saves a length of 0, meaning unknown, as empty (NULL).
 func (s *videoStore) MarkReady(ctx context.Context, id uuid.UUID, duration float64) error {
 	_, err := s.db.Exec(ctx,
@@ -84,7 +84,7 @@ func (s *videoStore) MarkReady(ctx context.Context, id uuid.UUID, duration float
 	return err
 }
 
-// DeleteLive removes every video still marked live, and returns how many it
+// DeleteLive removes every video still marked live and returns how many it
 // removed.
 func (s *videoStore) DeleteLive(ctx context.Context) (int64, error) {
 	tag, err := s.db.Exec(ctx, `DELETE FROM videos WHERE status = 'live'`)

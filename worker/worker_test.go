@@ -21,7 +21,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 )
 
-// fakeQueue hands out its jobs in order, and records which ones were marked
+// fakeQueue returns its jobs in order and records which ones were marked
 // done or renewed. mu guards renewed, since keepClaim renews in the
 // background.
 type fakeQueue struct {
@@ -72,7 +72,7 @@ func (f *fakeVideos) MarkFailed(_ context.Context, id uuid.UUID) error {
 }
 
 // fakeFiles stands in for the file store. It keeps each file's bytes by
-// path, and records the order files were saved in.
+// path and records the order files were saved in.
 type fakeFiles struct {
 	data  map[string][]byte
 	saved []string
@@ -119,7 +119,7 @@ func newTestWorker(convertErr error) (*worker, *fakeQueue, *fakeVideos, *fakeFil
 func TestNextDoesJob(t *testing.T) {
 	w, queue, videos, files, job := newTestWorker(nil)
 
-	// The fake conversion checks it was given the upload, and writes two files.
+	// The fake conversion checks it was given the upload and writes two files.
 	w.convert = func(_ context.Context, in, dir string) (float64, error) {
 		if data, err := os.ReadFile(in); err != nil || string(data) != "upload" {
 			t.Errorf("upload on disk = %q, %v, want the stored upload", data, err)
@@ -208,7 +208,7 @@ func TestNextGivesUp(t *testing.T) {
 	}
 }
 
-// keepClaim renews the job every interval, and stops once it's told to.
+// keepClaim renews the job every interval and stops once it's told to.
 func TestKeepClaim(t *testing.T) {
 	w, queue, _, _, job := newTestWorker(nil)
 	renewals := func() []uuid.UUID {
@@ -243,7 +243,7 @@ func TestNextWithNoJob(t *testing.T) {
 	}
 }
 
-// The client reads a claimed job, treats 204 as "nothing waiting", and turns
+// The client reads a claimed job, treats 204 as "nothing waiting" and turns
 // any other reply into an error.
 func TestQueueClientClaim(t *testing.T) {
 	job := Job{ID: uuid.New(), VideoID: uuid.New(), Attempts: 2}

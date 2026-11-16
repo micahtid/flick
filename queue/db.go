@@ -1,6 +1,6 @@
 package main
 
-// This file talks to Postgres: it connects, creates the jobs table, and runs
+// This file talks to Postgres: it connects, creates the jobs table and runs
 // the queries the queue uses.
 
 import (
@@ -64,7 +64,7 @@ func connectDB(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	return db, nil
 }
 
-// pingWithRetry checks that Postgres answers, and tries again until it does
+// pingWithRetry checks that Postgres answers and tries again until it does
 // or the tries run out.
 func pingWithRetry(ctx context.Context, db *pgxpool.Pool) error {
 	var err error
@@ -118,7 +118,7 @@ func (s *jobStore) Waiting(ctx context.Context) (int, error) {
 	return n, err
 }
 
-// Claim hands the oldest waiting job to the caller, marks it running, and adds
+// Claim hands the oldest waiting job to the caller, marks it running and adds
 // 1 to its attempts. ok is false if no job is waiting.
 func (s *jobStore) Claim(ctx context.Context) (job Job, ok bool, err error) {
 	// The inner SELECT picks the oldest waiting job. FOR UPDATE locks that row,
@@ -147,7 +147,7 @@ func (s *jobStore) Done(ctx context.Context, id uuid.UUID) (ok bool, err error) 
 	return s.change(ctx, `UPDATE jobs SET state = 'done' WHERE id = $1`, id)
 }
 
-// Renew restarts the clock on a running job, so it isn't handed out again
+// Renew restarts the clock on a running job, so it isn't reassigned
 // while its worker is still busy. ok is false if no running job has that ID.
 func (s *jobStore) Renew(ctx context.Context, id uuid.UUID) (ok bool, err error) {
 	return s.change(ctx, `UPDATE jobs SET claimed_at = now() WHERE id = $1 AND state = 'running'`, id)
@@ -164,7 +164,7 @@ func (s *jobStore) change(ctx context.Context, sql string, id uuid.UUID) (ok boo
 }
 
 // Requeue puts every job that has been running for longer than timeout back
-// in line, and returns how many it moved. A busy worker renews its job, so
+// to waiting and returns how many it moved. A busy worker renews its job, so
 // those jobs most likely belong to a worker that crashed.
 func (s *jobStore) Requeue(ctx context.Context, timeout time.Duration) (int64, error) {
 	// $1 * interval '1 second' turns a number of seconds into a Postgres

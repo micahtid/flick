@@ -1,7 +1,7 @@
 package main
 
 // This file is a small client for the queue. It claims the next job, renews
-// it while the worker is busy, and marks it done.
+// it while the worker is busy and marks it done.
 
 import (
 	"context"
@@ -49,13 +49,13 @@ func (q *queueClient) Claim(ctx context.Context) (job Job, ok bool, err error) {
 	}
 }
 
-// Done tells the queue a job is finished, so it's never handed out again.
+// Done tells the queue a job is finished, so it's never reassigned.
 func (q *queueClient) Done(ctx context.Context, id uuid.UUID) error {
 	return q.changeJob(ctx, id, "done")
 }
 
 // Renew tells the queue the worker is still busy with a job, so it isn't
-// handed out again.
+// reassigned.
 func (q *queueClient) Renew(ctx context.Context, id uuid.UUID) error {
 	return q.changeJob(ctx, id, "renew")
 }

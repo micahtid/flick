@@ -43,7 +43,7 @@ func TestPlan(t *testing.T) {
 }
 
 // newRepairCluster makes a leader that repairs three real nodes, each with its
-// own empty folder, and returns the leader and the nodes.
+// own empty folder and returns the leader and the nodes.
 func newRepairCluster(t *testing.T) (*node, []*node) {
 	t.Helper()
 	leader := leaderOf(newCluster(t, 1))

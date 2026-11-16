@@ -44,7 +44,7 @@ func (f *fakeVideos) MarkReady(_ context.Context, id uuid.UUID, duration float64
 }
 
 // fakeFiles stands in for the file store. It keeps each file's bytes by
-// path, and records the order files were saved in.
+// path and records the order files were saved in.
 type fakeFiles struct {
 	data  map[string][]byte
 	saved []string

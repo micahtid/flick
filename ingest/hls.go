@@ -69,7 +69,7 @@ func record(ctx context.Context, dir string) error {
 }
 
 // makePoster saves the first frame of the segment at seg as a JPEG at out.
-// The poster is the stream's thumbnail, and shows before the video plays.
+// The poster is the stream's thumbnail and shows before the video plays.
 // Every segment starts on a key frame, so the first frame is a full picture.
 func makePoster(ctx context.Context, seg, out string) error {
 	return runFFmpeg(ctx,

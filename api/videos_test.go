@@ -170,7 +170,7 @@ func TestCreateVideoCountsTitleCharacters(t *testing.T) {
 	}
 }
 
-// A good upload replies 201, saves the file and the trimmed title, and adds a
+// A good upload replies 201, saves the file and the trimmed title and adds a
 // job to convert the video.
 func TestCreateVideo(t *testing.T) {
 	files, repo, jobs, h := newTestServer()

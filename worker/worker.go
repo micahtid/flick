@@ -40,7 +40,7 @@ var (
 	})
 	jobsFailed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "jobs_failed_total",
-		Help: "Failed tries at converting a video.",
+		Help: "Failed attempts at converting a video.",
 	})
 )
 
@@ -68,7 +68,7 @@ type fileStore interface {
 }
 
 // worker holds what the work loop needs. convert turns the upload at in into
-// HLS files inside dir, and returns the video's length in seconds. It's
+// HLS files inside dir and returns the video's length in seconds. It's
 // convertToHLS in real use, and something quicker in the tests.
 type worker struct {
 	queue   jobQueue
@@ -154,8 +154,8 @@ func (w *worker) keepClaim(ctx context.Context, id uuid.UUID, every time.Duratio
 }
 
 // giveUp marks a job's video failed, so the website stops waiting for it, and
-// marks the job done, so it's never handed out again. If either step fails,
-// the job is handed out again later, and given up on then.
+// marks the job done, so it's never reassigned. If either step fails,
+// the job is reassigned later, and given up on then.
 func (w *worker) giveUp(ctx context.Context, job Job) {
 	log.Printf("job %s: giving up on video %s", job.ID, job.VideoID)
 	if err := w.videos.MarkFailed(ctx, job.VideoID); err != nil {
@@ -168,7 +168,7 @@ func (w *worker) giveUp(ctx context.Context, job Job) {
 }
 
 // process converts a job's video, saves the HLS files, marks the video ready
-// with its length, and marks the job done, in that order. If a later step
+// with its length and marks the job done, in that order. If a later step
 // fails, the whole job runs again later, which does no harm.
 //
 // FFmpeg needs real files on disk, so the work happens in a temporary folder:

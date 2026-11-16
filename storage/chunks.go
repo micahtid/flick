@@ -1,7 +1,7 @@
 package main
 
 // This file handles the chunk requests. It saves chunks, sends them back,
-// lists them, answers /health, and counts the chunks for Prometheus.
+// lists them, answers /health and counts the chunks for Prometheus.
 
 import (
 	"crypto/sha256"
@@ -28,7 +28,7 @@ const maxChunkBytes = 4 << 20
 var validID = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 // node is one storage node. It saves chunks as files in dir, each named by
-// its ID, and keeps its copy of the chunk map in fsm.
+// its ID and keeps its copy of the chunk map in fsm.
 type node struct {
 	dir   string
 	self  peer         // This is the node itself.
@@ -39,7 +39,7 @@ type node struct {
 }
 
 // routes connects each request type and path to its handler. metrics.Wrap
-// counts and times every request, and Prometheus reads the numbers from
+// counts and times every request, and Prometheus collects the metrics from
 // /metrics.
 func (n *node) routes() http.Handler {
 	mux := http.NewServeMux()
@@ -131,7 +131,7 @@ func (n *node) listChunks(w http.ResponseWriter, _ *http.Request) {
 }
 
 // chunkCount counts the chunks saved in dir. Prometheus reads it as
-// chunks_stored each time it collects the numbers.
+// chunks_stored each time it collects the metrics.
 func (n *node) chunkCount() float64 {
 	ids, err := n.chunkIDs()
 	if err != nil {

@@ -70,7 +70,7 @@ func (s *server) addWatch(w http.ResponseWriter, r *http.Request) {
 	s.count(w, r, id, 0, body.Seconds)
 }
 
-// count adds to a video's counts in Redis, and replies 204.
+// count adds to a video's counts in Redis and replies 204.
 func (s *server) count(w http.ResponseWriter, r *http.Request, id uuid.UUID, views, seconds int64) {
 	if err := s.views.Add(r.Context(), id, views, seconds); err != nil {
 		internalError(w, "count view", err)
@@ -130,7 +130,7 @@ func (s *server) flush(ctx context.Context) {
 }
 
 // redisCounter keeps each video's counts in Redis, as views:<id> and
-// watch:<id>, and lists the videos with counts in the countedKey set.
+// watch:<id> and lists the videos with counts in the countedKey set.
 type redisCounter struct {
 	rdb *redis.Client
 }

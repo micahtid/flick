@@ -10,7 +10,7 @@ import { useSyncExternalStore } from 'react'
 // it changes page.
 const NAVIGATE_EVENT = 'flick:navigate'
 
-// Calls onChange whenever the address may have changed, and returns a
+// Calls onChange whenever the address may have changed and returns a
 // function that stops listening. The browser fires "popstate" for back and
 // forward, but has no event for pushState, so navigate() fires our own.
 function subscribe(onChange: () => void) {

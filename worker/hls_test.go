@@ -87,7 +87,7 @@ func TestParseProbe(t *testing.T) {
 }
 
 // A real conversion of a short generated clip makes every file the player
-// needs, and skips qualities taller than the clip.
+// needs and skips qualities taller than the clip.
 func TestConvertToHLS(t *testing.T) {
 	for _, tool := range []string{"ffmpeg", "ffprobe"} {
 		if _, err := exec.LookPath(tool); err != nil {

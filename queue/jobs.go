@@ -1,7 +1,7 @@
 package main
 
-// This file holds the queue's routes, a handler for each endpoint, the loop
-// that puts stuck jobs back in line, and helpers for sending replies.
+// This file holds the queue's routes, a handler for each endpoint, helpers
+// for sending replies and the loop that puts stuck jobs back to waiting.
 
 import (
 	"context"
@@ -21,7 +21,7 @@ const (
 	// turned away so the line can't grow forever.
 	maxWaiting = 100
 	// claimTimeout is how long a worker may hold a job without renewing it.
-	// After that, the job is handed out again in case the worker crashed.
+	// After that, the job is reassigned in case the worker crashed.
 	claimTimeout = 5 * time.Minute
 	// requeueEvery is how often the queue looks for jobs held too long.
 	requeueEvery = 30 * time.Second
@@ -49,7 +49,7 @@ func newServer(jobs jobRepo) *server {
 
 // routes connects each request type and path to its handler. {id} matches any
 // value in that spot of the path. metrics.Wrap counts and times every
-// request, and Prometheus reads the numbers from /metrics.
+// request, and Prometheus collects the metrics from /metrics.
 func (s *server) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.health)
@@ -116,19 +116,19 @@ func (s *server) claimJob(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, job)
 }
 
-// finishJob marks a job done, so it's never handed out again. It replies 404
+// finishJob marks a job done, so it's never reassigned. It replies 404
 // if no job has that ID.
 func (s *server) finishJob(w http.ResponseWriter, r *http.Request) {
 	s.changeJob(w, r, "finish job", s.jobs.Done)
 }
 
 // renewJob tells the queue that a worker is still busy with a job, so it
-// isn't handed out again. It replies 404 if no running job has that ID.
+// isn't reassigned. It replies 404 if no running job has that ID.
 func (s *server) renewJob(w http.ResponseWriter, r *http.Request) {
 	s.changeJob(w, r, "renew job", s.jobs.Renew)
 }
 
-// changeJob runs change on the job named in the path, and replies 204. It
+// changeJob runs change on the job named in the path and replies 204. It
 // replies 404 if change found no such job. action names the step in the log
 // if it fails.
 func (s *server) changeJob(w http.ResponseWriter, r *http.Request, action string, change func(context.Context, uuid.UUID) (bool, error)) {
@@ -150,7 +150,7 @@ func (s *server) changeJob(w http.ResponseWriter, r *http.Request, action string
 }
 
 // waitingJobs counts the jobs waiting for a worker. Prometheus reads it as
-// queue_waiting_jobs each time it collects the numbers. It reports 0 if
+// queue_waiting_jobs each time it collects the metrics. It reports 0 if
 // Postgres can't be reached.
 func (s *server) waitingJobs() float64 {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -163,7 +163,7 @@ func (s *server) waitingJobs() float64 {
 	return float64(n)
 }
 
-// requeueLoop puts jobs held for too long back in line, every requeueEvery,
+// requeueLoop puts jobs held for too long back to waiting, every requeueEvery,
 // until ctx is cancelled. This is how a job survives its worker crashing.
 func (s *server) requeueLoop(ctx context.Context) {
 	ticker := time.NewTicker(requeueEvery)
