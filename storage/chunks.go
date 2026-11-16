@@ -1,7 +1,7 @@
 package main
 
 // This file handles the chunk requests. It saves chunks, sends them back,
-// and answers /health.
+// answers /health, and counts the chunks for Prometheus.
 
 import (
 	"crypto/sha256"
@@ -16,6 +16,7 @@ import (
 	"regexp"
 
 	"github.com/hashicorp/raft"
+	"github.com/micahtid/flick/pkg/metrics"
 )
 
 // maxChunkBytes is the largest chunk the node accepts. It matches chunk.Size
@@ -37,7 +38,9 @@ type node struct {
 	http  *http.Client // This talks to the other nodes.
 }
 
-// routes connects each request type and path to its handler.
+// routes connects each request type and path to its handler. metrics.Wrap
+// counts and times every request, and Prometheus reads the numbers from
+// /metrics.
 func (n *node) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", n.health)
@@ -46,7 +49,8 @@ func (n *node) routes() http.Handler {
 	mux.HandleFunc("POST /map", n.postMap)
 	mux.HandleFunc("GET /map/{id}", n.getMap)
 	mux.HandleFunc("GET /status", n.status)
-	return mux
+	mux.Handle("GET /metrics", metrics.Handler())
+	return metrics.Wrap(mux)
 }
 
 // health replies "ok". Other parts use it to see if the node is alive.
@@ -106,6 +110,24 @@ func (n *node) getChunk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Write(data)
+}
+
+// chunkCount counts the chunks saved in dir. Prometheus reads it as
+// chunks_stored each time it collects the numbers. Raft's folder and stray
+// .tmp files aren't chunks, so they're skipped.
+func (n *node) chunkCount() float64 {
+	entries, err := os.ReadDir(n.dir)
+	if err != nil {
+		log.Printf("count chunks: %v", err)
+		return 0
+	}
+	count := 0
+	for _, e := range entries {
+		if validID.MatchString(e.Name()) {
+			count++
+		}
+	}
+	return float64(count)
 }
 
 // path is where a chunk is saved, such as /chunks/<id>.

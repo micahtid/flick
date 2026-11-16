@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/micahtid/flick/pkg/chunk"
+	"github.com/micahtid/flick/pkg/metrics"
 )
 
 // main runs the worker and exits with an error message if it fails.
@@ -36,6 +37,7 @@ func run() error {
 	// Read the settings from environment variables, which docker-compose.yml sets.
 	queueURL := getenv("QUEUE_URL", "http://queue:8081")
 	storageNodes := getenv("STORAGE_NODES", "http://node1:9001,http://node2:9002,http://node3:9003")
+	metricsPort := getenv("METRICS_PORT", "8090")
 
 	db, err := connectDB(ctx, os.Getenv("DATABASE_URL"))
 	if err != nil {
@@ -51,6 +53,15 @@ func run() error {
 		files:   chunk.NewStore(db, chunk.New(storageNodes)),
 		convert: convertToHLS,
 	}
+
+	// The worker has no server of its own, so it runs a small one in the
+	// background for Prometheus. A failure is only logged, since the work
+	// matters more than the numbers.
+	go func() {
+		if err := metrics.Serve(ctx, metricsPort); err != nil {
+			log.Printf("metrics server: %v", err)
+		}
+	}()
 
 	log.Printf("worker started, asking %s for jobs", queueURL)
 	w.run(ctx)

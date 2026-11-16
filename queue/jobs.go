@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/micahtid/flick/pkg/metrics"
 )
 
 // These limit how long the line can get and how long a job can be held.
@@ -46,14 +47,16 @@ func newServer(jobs jobRepo) *server {
 }
 
 // routes connects each request type and path to its handler. {id} matches any
-// value in that spot of the path.
+// value in that spot of the path. metrics.Wrap counts and times every
+// request, and Prometheus reads the numbers from /metrics.
 func (s *server) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.health)
 	mux.HandleFunc("POST /jobs", s.addJob)
 	mux.HandleFunc("POST /jobs/claim", s.claimJob)
 	mux.HandleFunc("POST /jobs/{id}/done", s.finishJob)
-	return mux
+	mux.Handle("GET /metrics", metrics.Handler())
+	return metrics.Wrap(mux)
 }
 
 // health replies "ok". It's a quick way to check the queue is running.
@@ -129,6 +132,20 @@ func (s *server) finishJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// waitingJobs counts the jobs waiting for a worker. Prometheus reads it as
+// queue_waiting_jobs each time it collects the numbers. It reports 0 if
+// Postgres can't be reached.
+func (s *server) waitingJobs() float64 {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	n, err := s.jobs.Waiting(ctx)
+	if err != nil {
+		log.Printf("count waiting jobs: %v", err)
+		return 0
+	}
+	return float64(n)
 }
 
 // requeueLoop puts jobs held for too long back in line, every requeueEvery,

@@ -14,6 +14,9 @@ import (
 	"strconv"
 	"syscall"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 // main runs the cache and exits with an error message if it fails.
@@ -44,6 +47,16 @@ func run() error {
 	if err != nil {
 		return err
 	}
+
+	// Prometheus reads the hit and miss counts each time it reads /metrics.
+	promauto.NewCounterFunc(prometheus.CounterOpts{
+		Name: "cache_hits_total",
+		Help: "Segments sent from memory.",
+	}, func() float64 { return float64(s.hits.Load()) })
+	promauto.NewCounterFunc(prometheus.CounterOpts{
+		Name: "cache_misses_total",
+		Help: "Segments fetched from the API.",
+	}, func() float64 { return float64(s.misses.Load()) })
 
 	srv := &http.Server{
 		Addr:    ":" + port, // ":8082" means port 8082 on every network interface.

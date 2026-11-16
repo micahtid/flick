@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 )
 
 // fakeQueue hands out its jobs in order, and records which ones were marked
@@ -95,7 +96,8 @@ func newTestWorker(convertErr error) (*worker, *fakeQueue, *fakeVideos, *fakeFil
 }
 
 // A job that converts cleanly saves its HLS files with the master playlist
-// last, marks its video ready with its length, and marks the job done.
+// last, marks its video ready with its length, marks the job done, and is
+// counted as done.
 func TestNextDoesJob(t *testing.T) {
 	w, queue, videos, files, job := newTestWorker(nil)
 
@@ -114,6 +116,7 @@ func TestNextDoesJob(t *testing.T) {
 		}
 		return 12.5, nil
 	}
+	before := testutil.ToFloat64(jobsDone)
 
 	if !w.next(context.Background()) {
 		t.Fatal("next = false, want true when a job is waiting")
@@ -131,18 +134,25 @@ func TestNextDoesJob(t *testing.T) {
 	if len(queue.done) != 1 || queue.done[0] != job.ID {
 		t.Errorf("done jobs = %v, want [%s]", queue.done, job.ID)
 	}
+	if got := testutil.ToFloat64(jobsDone) - before; got != 1 {
+		t.Errorf("jobs_done_total went up by %v, want 1", got)
+	}
 }
 
 // A failed conversion leaves the video processing and the job unfinished, so
-// the queue hands it out again later.
+// the queue hands it out again later. It's counted as failed.
 func TestNextLeavesFailedJob(t *testing.T) {
 	w, queue, videos, files, _ := newTestWorker(errors.New("ffmpeg failed"))
+	before := testutil.ToFloat64(jobsFailed)
 
 	if !w.next(context.Background()) {
 		t.Fatal("next = false, want true when a job was claimed")
 	}
 	if len(videos.ready) != 0 || len(queue.done) != 0 || len(files.saved) != 0 {
 		t.Errorf("ready = %v, done = %v, saved = %v, want all empty", videos.ready, queue.done, files.saved)
+	}
+	if got := testutil.ToFloat64(jobsFailed) - before; got != 1 {
+		t.Errorf("jobs_failed_total went up by %v, want 1", got)
 	}
 }
 

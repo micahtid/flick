@@ -14,11 +14,25 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 // idleDelay is how long to wait before asking again when there's no job, or
 // when the queue can't be reached.
 const idleDelay = 2 * time.Second
+
+// These count finished and failed jobs. Prometheus reads them from /metrics.
+var (
+	jobsDone = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "jobs_done_total",
+		Help: "Videos converted.",
+	})
+	jobsFailed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "jobs_failed_total",
+		Help: "Jobs that failed and were left for the queue to hand out again.",
+	})
+)
 
 // jobQueue lists the queue actions the worker needs. queueClient in queue.go
 // is the real one, and the tests use a fake.
@@ -76,7 +90,10 @@ func (w *worker) next(ctx context.Context) bool {
 		// Leave the job unfinished. The queue hands it out again after a few
 		// minutes, which is how failed jobs get retried.
 		log.Printf("job %s failed: %v", job.ID, err)
+		jobsFailed.Inc()
+		return true
 	}
+	jobsDone.Inc()
 	return true
 }
 

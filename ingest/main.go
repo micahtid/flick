@@ -13,6 +13,7 @@ import (
 	"syscall"
 
 	"github.com/micahtid/flick/pkg/chunk"
+	"github.com/micahtid/flick/pkg/metrics"
 )
 
 // main runs the ingest service and exits with an error message if it fails.
@@ -33,6 +34,7 @@ func run() error {
 
 	// Read the settings from environment variables, which docker-compose.yml sets.
 	storageNodes := getenv("STORAGE_NODES", "http://node1:9001,http://node2:9002,http://node3:9003")
+	metricsPort := getenv("METRICS_PORT", "8083")
 
 	db, err := connectDB(ctx, os.Getenv("DATABASE_URL"))
 	if err != nil {
@@ -49,6 +51,15 @@ func run() error {
 		record: record,
 		poster: makePoster,
 	}
+
+	// The ingest service only speaks RTMP, so it runs a small HTTP server in
+	// the background for Prometheus. A failure is only logged, since streams
+	// matter more than the numbers.
+	go func() {
+		if err := metrics.Serve(ctx, metricsPort); err != nil {
+			log.Printf("metrics server: %v", err)
+		}
+	}()
 
 	log.Printf("ingest waiting for OBS at %s", rtmpURL)
 	in.run(ctx)

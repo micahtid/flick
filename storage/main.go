@@ -17,6 +17,10 @@ import (
 	"slices"
 	"syscall"
 	"time"
+
+	"github.com/hashicorp/raft"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 // main runs the node and exits with an error message if it fails.
@@ -72,6 +76,21 @@ func run() error {
 		http: &http.Client{Timeout: 30 * time.Second},
 	}
 	go n.repairLoop(ctx)
+
+	// Prometheus calls these each time it reads /metrics.
+	promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "raft_is_leader",
+		Help: "1 if this node is the leader, 0 if not.",
+	}, func() float64 {
+		if r.State() == raft.Leader {
+			return 1
+		}
+		return 0
+	})
+	promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "chunks_stored",
+		Help: "Chunks saved on this node.",
+	}, n.chunkCount)
 
 	srv := &http.Server{
 		Addr:              ":" + self.port,

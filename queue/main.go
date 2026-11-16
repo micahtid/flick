@@ -12,6 +12,9 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 // main runs the queue and exits with an error message if it fails.
@@ -41,6 +44,12 @@ func run() error {
 
 	s := newServer(&jobStore{db: db})
 	go s.requeueLoop(ctx) // This runs in the background and stops when ctx is cancelled.
+
+	// Prometheus calls waitingJobs each time it reads /metrics.
+	promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "queue_waiting_jobs",
+		Help: "Jobs waiting for a worker.",
+	}, s.waitingJobs)
 
 	srv := &http.Server{
 		Addr:    ":" + port, // ":8081" means port 8081 on every network interface.

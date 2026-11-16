@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"sync/atomic"
 
+	"github.com/micahtid/flick/pkg/metrics"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -59,13 +60,15 @@ func newServer(apiURL string, cache *lru, client *http.Client) (*server, error) 
 }
 
 // routes connects each request type and path to its handler. {path...}
-// matches the rest of the path, slashes included.
+// matches the rest of the path, slashes included. metrics.Wrap counts and
+// times every request, and Prometheus reads the numbers from /metrics.
 func (s *server) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.health)
 	mux.HandleFunc("GET /hls/{path...}", s.getHLSFile)
 	mux.HandleFunc("GET /stats", s.stats)
-	return mux
+	mux.Handle("GET /metrics", metrics.Handler())
+	return metrics.Wrap(mux)
 }
 
 // health replies "ok". It's a quick way to check the cache is running.
