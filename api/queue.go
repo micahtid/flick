@@ -1,7 +1,7 @@
 package main
 
-// A small client for the job queue, which the API uses to ask for each upload
-// to be converted.
+// This file is a small client for the queue. The API uses it to ask for each
+// upload to be converted.
 
 import (
 	"bytes"

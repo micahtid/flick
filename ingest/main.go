@@ -1,8 +1,9 @@
 // Package main is the Flick live ingest service. FFmpeg waits for OBS to send
-// a stream over RTMP, and converts it to HLS as it comes in: one quality, cut
-// into 2-second segments. Each segment is saved to the storage nodes as soon
-// as it's finished, so viewers watch less than 10 seconds behind. When the
-// stream ends, it becomes a normal video that anyone can replay.
+// a stream over RTMP (the protocol streaming apps use), and turns it into HLS
+// (HTTP Live Streaming) as it comes in: one quality, cut into 2-second
+// segments. Each segment is saved to the storage nodes as soon as it's
+// finished, so viewers watch less than 10 seconds behind. When the stream
+// ends, it becomes a normal video that anyone can replay.
 package main
 
 import (
@@ -23,16 +24,16 @@ func main() {
 	}
 }
 
-// run starts the ingest service and keeps it taking streams until it is told
-// to stop. It returns errors instead of exiting so cleanup (like closing the
-// database) always happens.
+// run starts the ingest service and keeps it running until it's told to
+// stop. It returns errors instead of exiting, so cleanup such as closing the
+// database always happens.
 func run() error {
-	// ctx is cancelled when the program is told to stop: Ctrl+C, or SIGTERM,
-	// which is what `docker compose down` sends.
+	// ctx is cancelled when the program is told to stop, by Ctrl+C or by
+	// SIGTERM. Docker sends SIGTERM when it stops a container.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Read the settings from environment variables, which docker-compose.yml sets.
+	// Read the settings from environment variables set in docker-compose.yml.
 	storageNodes := getenv("STORAGE_NODES", "http://node1:9001,http://node2:9002,http://node3:9003")
 	metricsPort := getenv("METRICS_PORT", "8083")
 

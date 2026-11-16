@@ -2,8 +2,8 @@
 // nodes, records them in Postgres, asks the queue to convert them, and lists
 // them. It also runs live chat, passing each message to every viewer through
 // Redis, and counts views and watch time for the creator dashboard. Nginx
-// forwards every /api request here with the /api part removed.
-// The cache also fetches the HLS files from here.
+// forwards every /api request here with the /api part removed. The cache also
+// fetches the HLS files from here.
 package main
 
 import (
@@ -28,16 +28,16 @@ func main() {
 	}
 }
 
-// run starts the API and keeps it running until it is told to stop. It
-// returns errors instead of exiting so cleanup (like closing the database)
+// run starts the API and keeps it running until it's told to stop. It
+// returns errors instead of exiting, so cleanup such as closing the database
 // always happens.
 func run() error {
-	// ctx is cancelled when the program is told to stop: Ctrl+C, or SIGTERM,
-	// which is what `docker compose down` sends.
+	// ctx is cancelled when the program is told to stop, by Ctrl+C or by
+	// SIGTERM. Docker sends SIGTERM when it stops a container.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Read the settings from environment variables, which docker-compose.yml sets.
+	// Read the settings from environment variables set in docker-compose.yml.
 	port := getenv("PORT", "8080")
 	queueURL := getenv("QUEUE_URL", "http://queue:8081")
 	storageNodes := getenv("STORAGE_NODES", "http://node1:9001,http://node2:9002,http://node3:9003")
@@ -63,7 +63,13 @@ func run() error {
 	jobs := &queueClient{url: queueURL, http: &http.Client{Timeout: 10 * time.Second}}
 
 	s := newServer(&videoStore{db: db}, jobs, chunk.NewStore(db, chunk.New(storageNodes)), &redisHub{rdb: rdb}, &redisCounter{rdb: rdb})
-	go s.flushLoop(ctx) // This runs in the background and stops when ctx is cancelled.
+	// Move view counts into Postgres in the background. flushed closes once
+	// the last move, made when ctx is cancelled, has finished.
+	flushed := make(chan struct{})
+	go func() {
+		s.flushLoop(ctx)
+		close(flushed)
+	}()
 
 	srv := &http.Server{
 		Addr:    ":" + port, // ":8080" means port 8080 on every network interface.
@@ -98,6 +104,7 @@ func run() error {
 	if err := srv.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
+	<-flushed // Wait for the last view counts to reach Postgres.
 	return nil
 }
 

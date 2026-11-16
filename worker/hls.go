@@ -1,9 +1,9 @@
 package main
 
-// Turning an upload into HLS (HTTP Live Streaming): a playlist and 4-second
-// segments for each quality, a poster image, and a master playlist that lists
-// the qualities. The player reads the master playlist and switches quality as
-// the connection speeds up or slows down.
+// This file turns an upload into HLS (HTTP Live Streaming). Each quality gets
+// a playlist and 4-second segments. A master playlist lists the qualities, so
+// the player can switch between them as the connection speeds up or slows
+// down. A poster image is made too.
 
 import (
 	"bytes"
@@ -131,7 +131,7 @@ func encodeRendition(ctx context.Context, in, dir string, r rendition) error {
 		"-i", in,
 		"-vf", fmt.Sprintf("scale=-2:%d", r.height), // -2 picks an even width that keeps the shape.
 		"-c:v", "libx264", // Use H.264, the most common video format.
-		"-preset", "veryfast", // Convert quickly, for slightly bigger files.
+		"-preset", "veryfast", // Convert quickly, at the cost of slightly bigger files.
 		"-maxrate", strconv.Itoa(maxrate),
 		"-bufsize", strconv.Itoa(2*maxrate), // This sets how far the bit rate may briefly go over the cap.
 		"-c:a", "aac", "-b:a", strconv.Itoa(audioBitrate), // Use AAC, the most common audio format.

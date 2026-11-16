@@ -1,7 +1,7 @@
 package main
 
-// Tests for the view counting in views.go. They use a fake counter in place
-// of Redis, so `go test` needs no Redis or Docker.
+// This file tests the view counting in views.go. A fake counter stands in for
+// Redis, so `go test` needs no Redis or Docker.
 
 import (
 	"context"
@@ -109,6 +109,19 @@ func TestFlush(t *testing.T) {
 	}
 	if len(views) != 0 {
 		t.Errorf("counter still has %v, want nothing", views)
+	}
+}
+
+// When the API stops, flushLoop moves the counts one last time.
+func TestFlushLoopFlushesOnStop(t *testing.T) {
+	s, repo, views := newCountingServer()
+	views.Add(context.Background(), uuid.New(), 1, 30)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	s.flushLoop(ctx)
+	if len(repo.counts) != 1 || len(views) != 0 {
+		t.Errorf("saved %+v, counter has %v, want the counts saved", repo.counts, views)
 	}
 }
 

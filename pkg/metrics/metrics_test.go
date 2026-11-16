@@ -1,7 +1,7 @@
 package metrics
 
-// Tests for Wrap and Handler in metrics.go. They send requests straight to
-// the handlers, so `go test` needs no Prometheus or Docker.
+// This file tests Wrap and Handler in metrics.go. The tests send requests
+// straight to the handlers, so `go test` needs no Prometheus or Docker.
 
 import (
 	"net/http"

@@ -1,8 +1,8 @@
 package main
 
-// Tests for the handlers in jobs.go. They use a fake in-memory database, so
-// `go test` needs no Postgres or Docker. The SQL that stops two workers
-// getting the same job is checked by running the real stack instead.
+// This file tests the handlers in jobs.go. A fake in-memory database stands
+// in for Postgres, so `go test` needs no Docker. The SQL that stops two
+// workers getting the same job is checked by running the real stack instead.
 
 import (
 	"bytes"
@@ -51,6 +51,7 @@ func (f *fakeRepo) Claim(context.Context) (Job, bool, error) {
 		if f.jobs[i].State == "waiting" {
 			now := time.Now()
 			f.jobs[i].State, f.jobs[i].ClaimedAt = "running", &now
+			f.jobs[i].Attempts++
 			return f.jobs[i], true, nil
 		}
 	}
@@ -64,6 +65,21 @@ func (f *fakeRepo) Done(_ context.Context, id uuid.UUID) (bool, error) {
 	for i := range f.jobs {
 		if f.jobs[i].ID == id {
 			f.jobs[i].State = "done"
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// Renew restarts the clock on a running job, the same as the real query.
+func (f *fakeRepo) Renew(_ context.Context, id uuid.UUID) (bool, error) {
+	if f.err != nil {
+		return false, f.err
+	}
+	for i := range f.jobs {
+		if f.jobs[i].ID == id && f.jobs[i].State == "running" {
+			now := time.Now()
+			f.jobs[i].ClaimedAt = &now
 			return true, nil
 		}
 	}
@@ -152,7 +168,8 @@ func TestAddJobWhenFull(t *testing.T) {
 	}
 }
 
-// Claiming hands out jobs oldest first, then replies 204 once none are left.
+// Claiming hands out jobs oldest first, each counted as its first attempt,
+// then replies 204 once none are left.
 func TestClaimJob(t *testing.T) {
 	repo, h := newTestServer()
 	first, _ := repo.Add(context.Background(), uuid.New())
@@ -167,8 +184,8 @@ func TestClaimJob(t *testing.T) {
 		if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
 			t.Fatal(err)
 		}
-		if got.ID != want.ID || got.State != "running" || got.ClaimedAt == nil {
-			t.Errorf("got %+v, want job %s running with a claim time", got, want.ID)
+		if got.ID != want.ID || got.State != "running" || got.ClaimedAt == nil || got.Attempts != 1 {
+			t.Errorf("got %+v, want job %s running with a claim time and 1 attempt", got, want.ID)
 		}
 	}
 
@@ -200,12 +217,38 @@ func TestFinishJob(t *testing.T) {
 	}
 }
 
+// Renewing a running job restarts its clock. A job that isn't running, such as
+// one already done, replies 404, and a bad ID replies 400.
+func TestRenewJob(t *testing.T) {
+	repo, h := newTestServer()
+	job, _ := repo.Add(context.Background(), uuid.New())
+	path := "/jobs/" + job.ID.String() + "/renew"
+
+	if rec := post(h, path, ""); rec.Code != http.StatusNotFound {
+		t.Errorf("waiting job: status = %d, want 404", rec.Code)
+	}
+
+	post(h, "/jobs/claim", "")
+	claimed := *repo.jobs[0].ClaimedAt
+	if rec := post(h, path, ""); rec.Code != http.StatusNoContent {
+		t.Errorf("running job: status = %d, want 204", rec.Code)
+	}
+	if !repo.jobs[0].ClaimedAt.After(claimed) {
+		t.Errorf("claim time = %v, want later than %v", repo.jobs[0].ClaimedAt, claimed)
+	}
+
+	if rec := post(h, "/jobs/not-a-uuid/renew", ""); rec.Code != http.StatusBadRequest {
+		t.Errorf("bad ID: status = %d, want 400", rec.Code)
+	}
+}
+
 // If the database fails, every endpoint replies a plain 500.
 func TestDatabaseErrors(t *testing.T) {
 	repo, h := newTestServer()
 	repo.err = errors.New("db down")
 
-	for _, path := range []string{"/jobs", "/jobs/claim", "/jobs/" + uuid.NewString() + "/done"} {
+	id := uuid.NewString()
+	for _, path := range []string{"/jobs", "/jobs/claim", "/jobs/" + id + "/done", "/jobs/" + id + "/renew"} {
 		if rec := post(h, path, addBody(uuid.New())); rec.Code != http.StatusInternalServerError {
 			t.Errorf("POST %s: status = %d, want 500", path, rec.Code)
 		}

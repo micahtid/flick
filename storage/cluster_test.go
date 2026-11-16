@@ -1,7 +1,8 @@
 package main
 
-// Tests for the cluster in cluster.go. Raft runs for real, but its messages
-// pass through memory instead of the network, so `go test` needs no Docker.
+// This file tests the cluster in cluster.go. Raft runs for real, but its
+// messages pass through memory instead of the network, so `go test` needs no
+// Docker.
 
 import (
 	"encoding/json"

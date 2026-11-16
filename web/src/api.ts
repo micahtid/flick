@@ -1,4 +1,4 @@
-// Functions for talking to the Go API, and the addresses of each video's
+// This file talks to the Go API, and gives the addresses of each video's
 // files and chat. API requests and chat go to /api/..., and Nginx (or Vite
 // while coding) passes them on to the API. Video files are under /hls/...,
 // which Nginx passes to the cache. The cache fetches any file it doesn't have
@@ -6,12 +6,13 @@
 
 import { titleCase } from './format'
 
-// A video is "processing" while a worker converts it, then "ready" to play. A
-// stream is "live" while it's happening, then "ready" like any other video.
-export type VideoStatus = 'processing' | 'live' | 'ready'
+// A video is "processing" while a worker converts it, then "ready" to play, or
+// "failed" if it couldn't be converted. A stream is "live" while it's
+// happening, then "ready" like any other video.
+export type VideoStatus = 'processing' | 'live' | 'ready' | 'failed'
 
-// One video, in the shape the API sends it. duration is its length in
-// seconds, or null until a worker has converted it or a stream has ended.
+// A Video is one video, in the shape the API sends it. duration is its length
+// in seconds, or null until a worker has converted it or a stream has ended.
 // created_at is a date written as text, such as "2026-11-10T22:16:08Z".
 export type Video = {
   id: string
@@ -21,8 +22,9 @@ export type Video = {
   created_at: string
 }
 
-// One video's numbers, in the shape the API sends them for the creator
-// dashboard. watch_seconds is the total time everyone has spent watching it.
+// A VideoStats is one video's numbers, in the shape the API sends them for the
+// creator dashboard. watch_seconds is the total time everyone has spent
+// watching it.
 export type VideoStats = {
   id: string
   title: string
@@ -31,36 +33,40 @@ export type VideoStats = {
   created_at: string
 }
 
-// The address of one of a video's files, made by a worker or, for a stream,
-// by the ingest service.
+// Returns the address of one of a video's files. A worker makes the files,
+// or the ingest service for a stream.
 function hlsFileUrl(id: string, name: string): string {
   return `/hls/${encodeURIComponent(id)}/${name}`
 }
 
-// The master playlist, which lists every quality. The player starts here.
+// Returns the address of the master playlist, which lists every quality. The
+// player starts here.
 export function playlistUrl(id: string): string {
   return hlsFileUrl(id, 'master.m3u8')
 }
 
-// A stream's live playlist, which lists only the newest few segments. The
-// player loads it again every few seconds to find new ones.
+// Returns the address of a stream's live playlist, which lists only the
+// newest few segments. The player loads it again every few seconds to find
+// new ones.
 export function livePlaylistUrl(id: string): string {
   return hlsFileUrl(id, 'live.m3u8')
 }
 
-// A still image from the video, for thumbnails and before playback starts.
+// Returns the address of a still image from the video. It's shown as the
+// thumbnail and before playback starts.
 export function posterUrl(id: string): string {
   return hlsFileUrl(id, 'poster.jpg')
 }
 
-// One chat message, in the shape the API sends it.
+// A ChatMessage is one chat message, in the shape the API sends it.
 export type ChatMessage = {
   name: string
   text: string
 }
 
-// The address of a stream's chat. A WebSocket address starts with ws://, or
-// wss:// on a secure site, instead of http://.
+// Returns the address of a stream's chat. A WebSocket (a connection that
+// stays open so both sides can send at any time) uses an address that starts
+// with ws://, or wss:// on a secure site, instead of http://.
 export function chatUrl(id: string): string {
   const scheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   return `${scheme}//${window.location.host}/api/chat/${encodeURIComponent(id)}`
@@ -134,10 +140,10 @@ export function uploadVideo(
       if (event.lengthComputable) onProgress?.(event.loaded / event.total)
     }
 
-    // Runs once the server has replied, whether it succeeded or not.
+    // Runs once the API has replied, whether it succeeded or not.
     xhr.onload = () => {
       // xhr.status is the reply's HTTP status code. 200 to 299 means success,
-      // and the API sends 201 Created. Anything else, like 400 or 500, is an
+      // and the API sends 201 Created. Anything else, such as 400 or 500, is an
       // error. xhr.responseText is the reply body as text.
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve(JSON.parse(xhr.responseText)) // This turns the JSON text into an object.

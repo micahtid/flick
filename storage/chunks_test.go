@@ -1,13 +1,16 @@
 package main
 
-// Tests for the handlers in chunks.go. They save chunks in a temporary
-// folder, so `go test` needs no Docker.
+// This file tests the handlers in chunks.go. The tests save chunks in a
+// temporary folder, so `go test` needs no Docker.
 
 import (
+	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -72,8 +75,8 @@ func TestPutRejects(t *testing.T) {
 	}
 }
 
-// A missing chunk replies 404, and a chunk damaged on disk replies 500
-// rather than sending bad data.
+// A missing chunk replies 404. A chunk damaged on disk replies 500 rather than
+// sending bad data, and is deleted so the repair loop can copy it back.
 func TestGetMissingAndDamaged(t *testing.T) {
 	n, h := newTestNode(t)
 	id := fingerprint([]byte("hello"))
@@ -87,5 +90,31 @@ func TestGetMissingAndDamaged(t *testing.T) {
 	}
 	if rec := send(h, http.MethodGet, "/chunks/"+id, ""); rec.Code != http.StatusInternalServerError {
 		t.Errorf("damaged chunk status = %d, want 500", rec.Code)
+	}
+	if _, err := os.Stat(filepath.Join(n.dir, id)); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("damaged chunk still on disk: %v", err)
+	}
+}
+
+// The list holds every chunk saved, and skips files that aren't chunks. An
+// empty node lists [] rather than null.
+func TestListChunks(t *testing.T) {
+	n, h := newTestNode(t)
+	if rec := send(h, http.MethodGet, "/chunks", ""); strings.TrimSpace(rec.Body.String()) != "[]" {
+		t.Errorf("empty node lists %q, want []", rec.Body)
+	}
+
+	id := fingerprint([]byte("hello"))
+	send(h, http.MethodPut, "/chunks/"+id, "hello")
+	if err := os.WriteFile(filepath.Join(n.dir, "stray.tmp"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var got []string
+	if err := json.NewDecoder(send(h, http.MethodGet, "/chunks", "").Body).Decode(&got); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(got, []string{id}) {
+		t.Errorf("listed %v, want [%s]", got, id)
 	}
 }

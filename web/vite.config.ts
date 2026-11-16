@@ -1,7 +1,7 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
-// Settings for Vite, which runs the site while coding (npm run dev) and
+// This file sets up Vite, which runs the website while coding (npm run dev) and
 // builds it for Nginx (npm run build).
 export default defineConfig({
   // Adds React support, including instant updates while editing.
@@ -15,7 +15,7 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
-        rewrite: (path) => path.replace(/^\/api/, ''), // For example, "/api/videos" becomes "/videos".
+        rewrite: (path) => path.replace(/^\/api/, ''), // This turns "/api/videos" into "/videos".
         ws: true,
       },
       '/hls': 'http://localhost',

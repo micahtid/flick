@@ -1,6 +1,7 @@
 package main
 
-// A small client for the job queue: claiming the next job and marking it done.
+// This file is a small client for the queue. It claims the next job, renews
+// it while the worker is busy, and marks it done.
 
 import (
 	"context"
@@ -11,10 +12,12 @@ import (
 	"github.com/google/uuid"
 )
 
-// Job is one job, in the shape the queue sends it.
+// Job is one job, in the shape the queue sends it. Attempts counts how many
+// times it has been claimed, this time included.
 type Job struct {
-	ID      uuid.UUID `json:"id"`
-	VideoID uuid.UUID `json:"video_id"`
+	ID       uuid.UUID `json:"id"`
+	VideoID  uuid.UUID `json:"video_id"`
+	Attempts int       `json:"attempts"`
 }
 
 // queueClient talks to the queue over HTTP. url is where it runs, such as
@@ -48,7 +51,18 @@ func (q *queueClient) Claim(ctx context.Context) (job Job, ok bool, err error) {
 
 // Done tells the queue a job is finished, so it's never handed out again.
 func (q *queueClient) Done(ctx context.Context, id uuid.UUID) error {
-	resp, err := q.post(ctx, "/jobs/"+id.String()+"/done")
+	return q.changeJob(ctx, id, "done")
+}
+
+// Renew tells the queue the worker is still busy with a job, so it isn't
+// handed out again.
+func (q *queueClient) Renew(ctx context.Context, id uuid.UUID) error {
+	return q.changeJob(ctx, id, "renew")
+}
+
+// changeJob posts to /jobs/<id>/<action> on the queue, and expects 204 back.
+func (q *queueClient) changeJob(ctx context.Context, id uuid.UUID, action string) error {
+	resp, err := q.post(ctx, "/jobs/"+id.String()+"/"+action)
 	if err != nil {
 		return err
 	}

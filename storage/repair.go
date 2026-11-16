@@ -1,32 +1,36 @@
 package main
 
-// This file holds the repair loop. Every 5 seconds, the leader finds chunks
-// that are missing from a node that's up, and copies them over. This fills in
-// a node that was down while chunks were being saved.
+// This file holds the repair loop. Every 5 seconds, the leader (the node that
+// makes every change to the chunk map) asks every node which chunks it has
+// saved, and copies each missing chunk over. This fills in a node that was
+// down while chunks were being saved, or one that lost or damaged a copy.
 
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
+	"maps"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/hashicorp/raft"
 )
 
 // These set how often the leader repairs, and how long it waits for a node to
-// answer.
+// list its chunks.
 const (
-	repairEvery   = 5 * time.Second
-	healthTimeout = 2 * time.Second
+	repairEvery = 5 * time.Second
+	listTimeout = 5 * time.Second
 )
 
 // copyJob is one chunk the leader needs to copy.
 type copyJob struct {
 	id   string
-	from []string // These nodes are up and hold the chunk.
+	from []string // These nodes are up and have the chunk saved.
 	to   []string // These nodes are up and missing it.
 }
 
@@ -50,43 +54,65 @@ func (n *node) repairLoop(ctx context.Context) {
 
 // repair copies each chunk to the nodes that are up but missing it.
 func (n *node) repair(ctx context.Context) {
-	for _, job := range plan(n.fsm.All(), n.up(ctx)) {
+	for _, job := range plan(n.fsm.All(), n.saved(ctx)) {
 		if err := n.copyChunk(ctx, job); err != nil {
 			log.Printf("repair chunk %s: %v", job.id, err)
 		}
 	}
 }
 
-// plan lists the chunks that are missing from at least one node that's up. A
-// chunk with no copy on a node that's up is still listed, so copyChunk can
-// report it.
-func plan(locs map[string][]string, up []string) []copyJob {
+// plan lists the chunks in the map that are missing from at least one node
+// that's up. saved maps each node that's up to the chunks it has on disk. A
+// copy that was lost or deleted counts as missing, even while the map still
+// lists it. A chunk with no copy on a node that's up is still listed, so
+// copyChunk can report it.
+func plan(locs map[string][]string, saved map[string]map[string]bool) []copyJob {
+	up := slices.Sorted(maps.Keys(saved))
 	var jobs []copyJob
-	for id, holders := range locs {
-		if to := minus(up, holders); len(to) > 0 {
-			jobs = append(jobs, copyJob{id: id, from: intersect(holders, up), to: to})
+	for id := range locs {
+		var from, to []string
+		for _, addr := range up {
+			if saved[addr][id] {
+				from = append(from, addr)
+			} else {
+				to = append(to, addr)
+			}
+		}
+		if len(to) > 0 {
+			jobs = append(jobs, copyJob{id: id, from: from, to: to})
 		}
 	}
 	return jobs
 }
 
-// up returns the nodes that answer /health.
-func (n *node) up(ctx context.Context) []string {
-	var nodes []string
+// saved asks every node which chunks it has on disk. A node that doesn't
+// answer is down, so it's left out.
+func (n *node) saved(ctx context.Context) map[string]map[string]bool {
+	saved := map[string]map[string]bool{}
 	for _, p := range n.peers {
-		if n.ping(ctx, p.addr) == nil {
-			nodes = append(nodes, p.addr)
+		ids, err := n.list(ctx, p.addr)
+		if err != nil {
+			continue
+		}
+		saved[p.addr] = map[string]bool{}
+		for _, id := range ids {
+			saved[p.addr][id] = true
 		}
 	}
-	return nodes
+	return saved
 }
 
-// ping asks one node if it's alive.
-func (n *node) ping(ctx context.Context, addr string) error {
-	ctx, cancel := context.WithTimeout(ctx, healthTimeout)
+// list asks one node for the IDs of the chunks it has saved.
+func (n *node) list(ctx context.Context, addr string) ([]string, error) {
+	ctx, cancel := context.WithTimeout(ctx, listTimeout)
 	defer cancel()
-	_, err := n.request(ctx, http.MethodGet, addr+"/health", nil, http.StatusOK)
-	return err
+	body, err := n.request(ctx, http.MethodGet, addr+"/chunks", nil, http.StatusOK)
+	if err != nil {
+		return nil, err
+	}
+	var ids []string
+	err = json.Unmarshal(body, &ids)
+	return ids, err
 }
 
 // copyChunk reads a chunk from a node that holds it, saves it on every node

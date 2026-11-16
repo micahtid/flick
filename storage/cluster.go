@@ -2,6 +2,12 @@ package main
 
 // This file connects the node to the other nodes with Raft. It also handles
 // the requests that read and change the chunk map, and answers /status.
+//
+// Raft keeps a list of changes the same on every node. One node, the leader,
+// takes every change and sends it to the others, the followers. A change is
+// committed (final) once most of the nodes, 2 of 3, have saved it. Each node
+// then applies it to its own copy of the map. If the leader stops, the others
+// hold an election: they vote, and one of them becomes the new leader.
 
 import (
 	"encoding/json"
@@ -66,8 +72,9 @@ func parsePeers(list string) ([]peer, error) {
 	return peers, nil
 }
 
-// startRaft starts Raft for this node. Raft saves its log and votes in
-// dir/raft.db, and its snapshots in dir, so all of them survive a restart.
+// startRaft starts Raft for this node. Raft saves its log (the list of
+// changes) and votes in dir/raft.db, and its snapshots (copies of the whole
+// map) in dir, so all of them survive a restart.
 // Only the very first start of the cluster needs bootstrap, which tells Raft
 // who the members are.
 func startRaft(self peer, peers []peer, dir string, bootstrap bool, f *fsm) (*raft.Raft, error) {
@@ -170,8 +177,9 @@ func (n *node) getMap(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, holders)
 }
 
-// status replies with this node's name, its Raft state (Leader, Follower or
-// Candidate) and the leader's name. It shows which node is the leader.
+// status replies with this node's name, its Raft state and the leader's name.
+// The state is Leader, Follower or Candidate (a node asking for votes to
+// become the leader).
 func (n *node) status(w http.ResponseWriter, _ *http.Request) {
 	leader, _ := n.leader()
 	writeJSON(w, map[string]string{

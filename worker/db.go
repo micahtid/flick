@@ -1,6 +1,6 @@
 package main
 
-// Everything that talks to Postgres: connecting, and marking a video ready.
+// This file talks to Postgres: it connects and marks videos ready or failed.
 // The API creates the videos table, so the worker only updates it.
 
 import (
@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// At startup, try to reach Postgres up to 10 times, 1 second apart.
+// These make startup try to reach Postgres up to 10 times, 1 second apart.
 const (
 	connectAttempts = 10
 	connectDelay    = time.Second
@@ -37,8 +37,8 @@ func connectDB(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	return db, nil
 }
 
-// pingWithRetry checks that Postgres answers, retrying until it does or the
-// attempts run out.
+// pingWithRetry checks that Postgres answers, and tries again until it does
+// or the tries run out.
 func pingWithRetry(ctx context.Context, db *pgxpool.Pool) error {
 	var err error
 	for attempt := 1; attempt <= connectAttempts; attempt++ {
@@ -70,5 +70,12 @@ func (s *videoStore) MarkReady(ctx context.Context, id uuid.UUID, duration float
 	_, err := s.db.Exec(ctx,
 		`UPDATE videos SET status = 'ready', duration = NULLIF($2::double precision, 0) WHERE id = $1`,
 		id, duration)
+	return err
+}
+
+// MarkFailed sets a video's status to "failed", which tells the website it
+// couldn't be converted.
+func (s *videoStore) MarkFailed(ctx context.Context, id uuid.UUID) error {
+	_, err := s.db.Exec(ctx, `UPDATE videos SET status = 'failed' WHERE id = $1`, id)
 	return err
 }

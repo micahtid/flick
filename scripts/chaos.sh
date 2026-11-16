@@ -1,7 +1,7 @@
 #!/bin/sh
-# Stops and starts a random storage node, over and over, for 10 minutes. Keep
-# uploading videos while it runs, then run scripts/check.sh to make sure no
-# chunk was lost. Run it from the project folder.
+# This script stops and starts a random storage node, over and over, for 10
+# minutes. Keep uploading videos while it runs, then run scripts/check.sh to
+# make sure no chunk was lost. Run it from the project folder.
 
 end=$(( $(date +%s) + 600 )) # 600 seconds is 10 minutes.
 while [ "$(date +%s)" -lt "$end" ]; do

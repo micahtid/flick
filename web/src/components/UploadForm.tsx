@@ -18,7 +18,7 @@ export function UploadForm({ onUploaded }: Props) {
   const [error, setError] = useState<string | null>(null)
   const uploading = progress !== null
 
-  // Stores a picked or dropped file.
+  // Keeps a picked or dropped file, ready to upload.
   function chooseFile(chosen: File | undefined) {
     if (!chosen) return // This happens when the file picker is cancelled.
     setFile(chosen)

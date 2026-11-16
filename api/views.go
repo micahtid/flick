@@ -90,18 +90,19 @@ func (s *server) getStats(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, stats)
 }
 
-// flushLoop moves the counts into Postgres every flushEvery, until ctx is
-// cancelled.
+// flushLoop moves the counts into Postgres every flushEvery. When ctx is
+// cancelled, it moves them one last time and returns.
 func (s *server) flushLoop(ctx context.Context) {
 	ticker := time.NewTicker(flushEvery)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
+			s.flush(context.WithoutCancel(ctx))
 			return
 		case <-ticker.C:
+			s.flush(ctx)
 		}
-		s.flush(ctx)
 	}
 }
 
@@ -115,6 +116,9 @@ func (s *server) flush(ctx context.Context) {
 	if len(counts) == 0 {
 		return
 	}
+	// The counts are now only in memory, so finish even if the API is told
+	// to stop partway through.
+	ctx = context.WithoutCancel(ctx)
 	if err := s.videos.AddCounts(ctx, counts); err != nil {
 		log.Printf("save view counts: %v", err)
 		for _, c := range counts {
@@ -132,7 +136,8 @@ type redisCounter struct {
 }
 
 // Add adds to a video's counters, and to the set. TxPipelined sends the
-// commands together, and Redis runs them as one, so Take never sees half.
+// commands together, and Redis runs them as one, so Take sees all of them or
+// none.
 func (c *redisCounter) Add(ctx context.Context, id uuid.UUID, views, seconds int64) error {
 	key := id.String()
 	_, err := c.rdb.TxPipelined(ctx, func(p redis.Pipeliner) error {

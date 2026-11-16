@@ -1,7 +1,7 @@
 package main
 
-// Everything that talks to Postgres: connecting, creating the table, and the
-// queries the queue uses.
+// This file talks to Postgres: it connects, creates the jobs table, and runs
+// the queries the queue uses.
 
 import (
 	"context"
@@ -15,19 +15,25 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// schema creates the jobs table. IF NOT EXISTS makes it safe to run on every
-// start. Each row is one job, and state is "waiting", "running" or "done".
-// claimed_at stays empty (NULL) until a worker takes the job.
-const schema = `
-CREATE TABLE IF NOT EXISTS jobs (
+// schema creates the jobs table, one statement at a time. IF NOT EXISTS makes
+// each one safe to run on every start. Each row is one job, and state is
+// "waiting", "running" or "done". claimed_at stays empty (NULL) until a worker
+// takes the job, and attempts counts how many times it has been taken.
+//
+// The ALTER adds attempts to a table made by an older version of Flick.
+var schema = []string{
+	`CREATE TABLE IF NOT EXISTS jobs (
   id         UUID PRIMARY KEY,
   video_id   UUID NOT NULL,
   state      TEXT NOT NULL DEFAULT 'waiting',
   claimed_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-)`
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  attempts   INT NOT NULL DEFAULT 0
+)`,
+	`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS attempts INT NOT NULL DEFAULT 0`,
+}
 
-// At startup, try to reach Postgres up to 10 times, 1 second apart.
+// These make startup try to reach Postgres up to 10 times, 1 second apart.
 const (
 	connectAttempts = 10
 	connectDelay    = time.Second
@@ -49,15 +55,17 @@ func connectDB(ctx context.Context, url string) (*pgxpool.Pool, error) {
 		return nil, err
 	}
 
-	if _, err := db.Exec(ctx, schema); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("create schema: %w", err)
+	for _, stmt := range schema {
+		if _, err := db.Exec(ctx, stmt); err != nil {
+			db.Close()
+			return nil, fmt.Errorf("create schema: %w", err)
+		}
 	}
 	return db, nil
 }
 
-// pingWithRetry checks that Postgres answers, retrying until it does or the
-// attempts run out.
+// pingWithRetry checks that Postgres answers, and tries again until it does
+// or the tries run out.
 func pingWithRetry(ctx context.Context, db *pgxpool.Pool) error {
 	var err error
 	for attempt := 1; attempt <= connectAttempts; attempt++ {
@@ -85,6 +93,7 @@ type Job struct {
 	VideoID   uuid.UUID  `json:"video_id"`
 	State     string     `json:"state"`
 	ClaimedAt *time.Time `json:"claimed_at,omitempty"`
+	Attempts  int        `json:"attempts"`
 }
 
 // jobStore runs the queries on the jobs table.
@@ -109,21 +118,21 @@ func (s *jobStore) Waiting(ctx context.Context) (int, error) {
 	return n, err
 }
 
-// Claim hands the oldest waiting job to the caller and marks it running. ok is
-// false if no job is waiting.
+// Claim hands the oldest waiting job to the caller, marks it running, and adds
+// 1 to its attempts. ok is false if no job is waiting.
 func (s *jobStore) Claim(ctx context.Context) (job Job, ok bool, err error) {
 	// The inner SELECT picks the oldest waiting job. FOR UPDATE locks that row,
 	// and SKIP LOCKED makes a second worker asking at the same moment skip it
 	// and take the next one, so two workers never get the same job.
 	err = s.db.QueryRow(ctx, `
-		UPDATE jobs SET state = 'running', claimed_at = now()
+		UPDATE jobs SET state = 'running', claimed_at = now(), attempts = attempts + 1
 		WHERE id = (
 		  SELECT id FROM jobs WHERE state = 'waiting'
 		  ORDER BY created_at LIMIT 1
 		  FOR UPDATE SKIP LOCKED
 		)
-		RETURNING id, video_id, state, claimed_at`,
-	).Scan(&job.ID, &job.VideoID, &job.State, &job.ClaimedAt)
+		RETURNING id, video_id, state, claimed_at, attempts`,
+	).Scan(&job.ID, &job.VideoID, &job.State, &job.ClaimedAt, &job.Attempts)
 	if errors.Is(err, pgx.ErrNoRows) { // No row matched, so nothing is waiting.
 		return Job{}, false, nil
 	}
@@ -135,7 +144,19 @@ func (s *jobStore) Claim(ctx context.Context) (job Job, ok bool, err error) {
 
 // Done marks a job done. ok is false if no job has that ID.
 func (s *jobStore) Done(ctx context.Context, id uuid.UUID) (ok bool, err error) {
-	tag, err := s.db.Exec(ctx, `UPDATE jobs SET state = 'done' WHERE id = $1`, id)
+	return s.change(ctx, `UPDATE jobs SET state = 'done' WHERE id = $1`, id)
+}
+
+// Renew restarts the clock on a running job, so it isn't handed out again
+// while its worker is still busy. ok is false if no running job has that ID.
+func (s *jobStore) Renew(ctx context.Context, id uuid.UUID) (ok bool, err error) {
+	return s.change(ctx, `UPDATE jobs SET claimed_at = now() WHERE id = $1 AND state = 'running'`, id)
+}
+
+// change runs a query that updates the job with that ID. ok is false if no
+// job matched.
+func (s *jobStore) change(ctx context.Context, sql string, id uuid.UUID) (ok bool, err error) {
+	tag, err := s.db.Exec(ctx, sql, id)
 	if err != nil {
 		return false, err
 	}
@@ -143,8 +164,8 @@ func (s *jobStore) Done(ctx context.Context, id uuid.UUID) (ok bool, err error) 
 }
 
 // Requeue puts every job that has been running for longer than timeout back
-// in line, and returns how many it moved. Those jobs most likely belong to a
-// worker that crashed.
+// in line, and returns how many it moved. A busy worker renews its job, so
+// those jobs most likely belong to a worker that crashed.
 func (s *jobStore) Requeue(ctx context.Context, timeout time.Duration) (int64, error) {
 	// $1 * interval '1 second' turns a number of seconds into a Postgres
 	// length of time.

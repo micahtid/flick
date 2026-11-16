@@ -1,7 +1,7 @@
 package main
 
 // This file handles the chunk requests. It saves chunks, sends them back,
-// answers /health, and counts the chunks for Prometheus.
+// lists them, answers /health, and counts the chunks for Prometheus.
 
 import (
 	"crypto/sha256"
@@ -24,7 +24,7 @@ import (
 const maxChunkBytes = 4 << 20
 
 // validID matches a chunk ID: a SHA-256 fingerprint written as 64 hex
-// characters. Checking it also stops IDs like ".." from reaching the disk.
+// characters. Checking it also stops IDs such as ".." from reaching the disk.
 var validID = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 // node is one storage node. It saves chunks as files in dir, each named by
@@ -46,6 +46,7 @@ func (n *node) routes() http.Handler {
 	mux.HandleFunc("GET /health", n.health)
 	mux.HandleFunc("PUT /chunks/{id}", n.putChunk)
 	mux.HandleFunc("GET /chunks/{id}", n.getChunk)
+	mux.HandleFunc("GET /chunks", n.listChunks)
 	mux.HandleFunc("POST /map", n.postMap)
 	mux.HandleFunc("GET /map/{id}", n.getMap)
 	mux.HandleFunc("GET /status", n.status)
@@ -53,7 +54,7 @@ func (n *node) routes() http.Handler {
 	return metrics.Wrap(mux)
 }
 
-// health replies "ok". Other parts use it to see if the node is alive.
+// health replies "ok". It's a quick way to check the node is running.
 func (n *node) health(w http.ResponseWriter, _ *http.Request) {
 	io.WriteString(w, "ok")
 }
@@ -86,6 +87,7 @@ func (n *node) putChunk(w http.ResponseWriter, r *http.Request) {
 }
 
 // getChunk sends a chunk back, after checking it hasn't been damaged on disk.
+// A damaged copy is deleted, so the repair loop copies a good one back.
 func (n *node) getChunk(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if !validID.MatchString(id) {
@@ -105,29 +107,55 @@ func (n *node) getChunk(w http.ResponseWriter, r *http.Request) {
 	}
 	if fingerprint(data) != id {
 		// Never send damaged data. The client asks another node instead.
-		log.Printf("chunk %s is damaged", id)
+		log.Printf("chunk %s is damaged, so it's deleted", id)
+		if err := os.Remove(n.path(id)); err != nil {
+			log.Printf("delete chunk %s: %v", id, err)
+		}
 		http.Error(w, "corrupt chunk", http.StatusInternalServerError)
 		return
 	}
 	w.Write(data)
 }
 
+// listChunks replies with the ID of every chunk saved on this node, such as
+// ["3f2a...", "9b1c..."]. The leader's repair loop uses it to find the copies
+// a node is missing.
+func (n *node) listChunks(w http.ResponseWriter, _ *http.Request) {
+	ids, err := n.chunkIDs()
+	if err != nil {
+		log.Printf("list chunks: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, ids)
+}
+
 // chunkCount counts the chunks saved in dir. Prometheus reads it as
-// chunks_stored each time it collects the numbers. Raft's folder and stray
-// .tmp files aren't chunks, so they're skipped.
+// chunks_stored each time it collects the numbers.
 func (n *node) chunkCount() float64 {
-	entries, err := os.ReadDir(n.dir)
+	ids, err := n.chunkIDs()
 	if err != nil {
 		log.Printf("count chunks: %v", err)
 		return 0
 	}
-	count := 0
+	return float64(len(ids))
+}
+
+// chunkIDs lists the chunks saved in dir. Raft's folder and stray .tmp files
+// aren't chunks, so they're skipped. It starts with an empty list rather than
+// nil, so no chunks is sent as [] instead of null.
+func (n *node) chunkIDs() ([]string, error) {
+	entries, err := os.ReadDir(n.dir)
+	if err != nil {
+		return nil, err
+	}
+	ids := []string{}
 	for _, e := range entries {
 		if validID.MatchString(e.Name()) {
-			count++
+			ids = append(ids, e.Name())
 		}
 	}
-	return float64(count)
+	return ids, nil
 }
 
 // path is where a chunk is saved, such as /chunks/<id>.

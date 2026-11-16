@@ -1,8 +1,8 @@
 package main
 
-// The work itself: wait for a stream, save its files as FFmpeg makes them
-// (see hls.go), and turn it into a normal video once it ends. Then wait for
-// the next stream.
+// This file runs the stream loop. It waits for a stream, saves its files as
+// FFmpeg makes them (see hls.go) and turns it into a normal video once it
+// ends. Then it waits for the next stream.
 
 import (
 	"context"
@@ -19,10 +19,11 @@ import (
 	"github.com/google/uuid"
 )
 
-// syncInterval is how often to look for new segments.
+// syncInterval is how often the ingest service looks for new segments.
 const syncInterval = time.Second
 
-// retryDelay is how long to wait before starting FFmpeg again after it fails.
+// retryDelay is how long the ingest service waits before starting FFmpeg
+// again after it fails.
 const retryDelay = 2 * time.Second
 
 // streamTitle is the title every stream gets.
@@ -54,17 +55,19 @@ type ingester struct {
 
 // stream is one live stream. dir is the temporary folder FFmpeg writes into,
 // segments lists every segment saved so far, in order, and live is true once
-// the video has been added.
+// the video has been added. listed is how many segments the saved live
+// playlist lists, so a playlist that failed to save is tried again.
 type stream struct {
 	id       uuid.UUID
 	dir      string
 	segments []segment
 	live     bool
+	listed   int
 }
 
-// path names one of the stream's files in the file store, such as
-// hls/<id>/seg_00042.ts. The cache fetches /hls/<id>/... from the API, which
-// reads them from there.
+// path returns where one of the stream's files lives in the file store, such
+// as hls/<id>/seg_00042.ts. The cache fetches /hls/<id>/... from the API,
+// which reads the file from there.
 func (s *stream) path(name string) string {
 	return "hls/" + s.id.String() + "/" + name
 }
@@ -119,8 +122,9 @@ func (in *ingester) take(ctx context.Context) error {
 
 // sync saves the segments FFmpeg has finished since the last sync, then the
 // live playlist. The segments go first, so the playlist never lists one that
-// isn't saved yet. On the stream's first sync, it also adds the video, so it
-// shows up on the website.
+// isn't saved yet. Once the first segment is saved, it also adds the video, so
+// it shows up on the website. Any step that failed last time is tried again,
+// even if no new segment has come in.
 func (in *ingester) sync(ctx context.Context, s *stream) error {
 	data, err := os.ReadFile(filepath.Join(s.dir, recordName))
 	if errors.Is(err, fs.ErrNotExist) {
@@ -133,14 +137,14 @@ func (in *ingester) sync(ctx context.Context, s *stream) error {
 	// FFmpeg's playlist lists every segment so far, so any past the ones
 	// already saved are new.
 	segs := parsePlaylist(data)
-	if len(segs) <= len(s.segments) {
-		return nil
-	}
-	for _, seg := range segs[len(s.segments):] {
+	for _, seg := range segs[min(len(s.segments), len(segs)):] {
 		if err := in.saveFile(ctx, s, seg.name); err != nil {
 			return err
 		}
 		s.segments = append(s.segments, seg)
+	}
+	if len(s.segments) == 0 {
+		return nil // FFmpeg hasn't finished a segment yet.
 	}
 
 	if !s.live {
@@ -148,7 +152,14 @@ func (in *ingester) sync(ctx context.Context, s *stream) error {
 			return err
 		}
 	}
-	return in.save(ctx, s, liveName, livePlaylist(s.segments))
+	if s.listed == len(s.segments) {
+		return nil // The saved live playlist is already up to date.
+	}
+	if err := in.save(ctx, s, liveName, livePlaylist(s.segments)); err != nil {
+		return err
+	}
+	s.listed = len(s.segments)
+	return nil
 }
 
 // start saves a poster from the stream's first segment, then adds the video

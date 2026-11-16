@@ -1,7 +1,7 @@
 package main
 
-// Tests for the queue client in queue.go. A pretend queue stands in for the
-// real one, so `go test` needs no Docker.
+// This file tests the queue client in queue.go. A pretend queue stands in for
+// the real one, so `go test` needs no Docker.
 
 import (
 	"context"

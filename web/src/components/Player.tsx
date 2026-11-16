@@ -2,11 +2,11 @@ import Hls from 'hls.js/light'
 import { useEffect, useRef } from 'react'
 import { livePlaylistUrl, playlistUrl, posterUrl, reportView, reportWatch } from '../api'
 
-// How many seconds behind the newest segment a stream plays. Staying a few
+// A stream plays this many seconds behind its newest segment. Staying a few
 // segments back leaves room to buffer, so playback doesn't stall.
 const LIVE_SYNC_SECONDS = 6
 
-// How many seconds of playback to add up before reporting them.
+// Watch time is reported each time this many seconds of playback add up.
 const WATCH_REPORT_SECONDS = 30
 
 type Props = {
@@ -14,12 +14,13 @@ type Props = {
   live: boolean
 }
 
-// Plays a video with adaptive streaming. Most browsers can't play HLS on
-// their own, so hls.js downloads the segments and feeds them to the <video>
-// element. It also times each download and picks the quality the connection
-// can keep up with. The "light" build leaves out features Flick doesn't use,
-// such as subtitles and copy protection, which makes it much smaller. Safari
-// plays HLS on its own, so there it's given the playlist directly.
+// Plays a video with adaptive streaming, which switches quality to match the
+// connection. Most browsers can't play HLS on their own, so hls.js downloads
+// the segments and feeds them to the <video> element. It also times each
+// download and picks the quality the connection can keep up with. The
+// "light" build leaves out features Flick doesn't use, such as subtitles and
+// copy protection, which makes it much smaller. Safari plays HLS on its own,
+// so there it's given the playlist directly.
 //
 // A stream plays from its live playlist instead, which hls.js loads again
 // every few seconds to find new segments.
@@ -41,9 +42,9 @@ export function Player({ id, live }: Props) {
 
     // liveSyncDuration only affects live playlists.
     const hls = new Hls({ liveSyncDuration: LIVE_SYNC_SECONDS })
-    // Most errors are retried by hls.js itself. A fatal one stops playback,
-    // so try to recover once: reload for a network error, or reset the
-    // decoder for a media error.
+    // hls.js retries most errors itself. A fatal one stops playback, so try to
+    // recover: load again for a network error, or reset the decoder for a
+    // media error. Any other fatal error can't be fixed, so stop hls.js.
     hls.on(Hls.Events.ERROR, (_event, data) => {
       if (!data.fatal) return
       if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad()
@@ -74,8 +75,10 @@ export function Player({ id, live }: Props) {
       reportWatch(id, watched)
       watched = 0
     }
+    // A video that is waiting for data isn't paused, so readyState is checked
+    // too. HAVE_FUTURE_DATA means there's enough to keep playing.
     const timer = setInterval(() => {
-      if (video.paused || video.ended) return
+      if (video.paused || video.ended || video.readyState < video.HAVE_FUTURE_DATA) return
       watched++
       if (watched >= WATCH_REPORT_SECONDS) reportWatched()
     }, 1000)

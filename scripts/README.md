@@ -1,6 +1,6 @@
 # Scripts
 
-Shell scripts for testing the storage nodes and upgrading old data. Run them from the project folder while `docker compose up` is running. They need `curl` and `shuf`, which come with Git Bash on Windows.
+Shell scripts for testing the storage nodes. Run them from the project folder while `docker compose up` is running. They need `curl` and `shuf`, which come with Git Bash on Windows.
 
 ## Commands
 
@@ -8,7 +8,6 @@ Shell scripts for testing the storage nodes and upgrading old data. Run them fro
 | --- | --- |
 | `sh scripts/chaos.sh` | Stops and starts a random storage node, over and over, for 10 minutes. |
 | `sh scripts/check.sh` | Checks that every chunk in the `files` table is saved on all 3 nodes. It fails if any chunk is missing a copy. |
-| `sh scripts/backfill.sh` | Adds chunks saved before Phase 5 to the chunk map, so the repair loop can see them. Run it once after upgrading. |
 
 ## Development
 
@@ -18,11 +17,9 @@ Shell scripts for testing the storage nodes and upgrading old data. Run them fro
 
 ## Additional Information: The Chaos Test
 
-The chaos test proves that no chunk is lost while nodes keep failing.
-
 | Step | Description |
 | --- | --- |
 | 1 | Run `sh scripts/chaos.sh`. |
 | 2 | While it runs, keep uploading videos in a second terminal, such as with `while true; do curl -F file=@test.mp4 -F title=Test localhost/api/videos; sleep 8; done`. |
 | 3 | Watch the **Storage Nodes Up** and **Raft Leader** panels in Grafana, at http://localhost:3001. Each stopped node turns red, and if it was the leader, another node takes over within a few seconds. |
-| 4 | When it finishes, wait a few seconds for the repair loop, then run `sh scripts/check.sh`. Every chunk should have 3 copies. |
+| 4 | When it finishes, wait a few seconds for the repair loop, then run `sh scripts/check.sh`. Every chunk should have 3 copies, which proves none was lost while nodes kept failing. |

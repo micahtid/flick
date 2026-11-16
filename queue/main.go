@@ -24,16 +24,16 @@ func main() {
 	}
 }
 
-// run starts the queue and keeps it running until it is told to stop. It
-// returns errors instead of exiting so cleanup (like closing the database)
+// run starts the queue and keeps it running until it's told to stop. It
+// returns errors instead of exiting, so cleanup such as closing the database
 // always happens.
 func run() error {
-	// ctx is cancelled when the program is told to stop: Ctrl+C, or SIGTERM,
-	// which is what `docker compose down` sends.
+	// ctx is cancelled when the program is told to stop, by Ctrl+C or by
+	// SIGTERM. Docker sends SIGTERM when it stops a container.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Read the settings from environment variables, which docker-compose.yml sets.
+	// Read the settings from environment variables set in docker-compose.yml.
 	port := getenv("PORT", "8081")
 
 	db, err := connectDB(ctx, os.Getenv("DATABASE_URL"))

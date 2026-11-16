@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 460" width="960" height="460" role="img" aria-label="How the queue handles each request">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 548" width="960" height="548" role="img" aria-label="How the queue handles each request">
   <style>
     text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 14px; fill: #1f2328; text-anchor: middle; dominant-baseline: central; }
     .sub { font-size: 12px; fill: #57606a; }
@@ -58,9 +58,12 @@
   <path class="ln" d="M204 406 H268" marker-end="url(#a)"/>
   <path class="ln" d="M448 406 H512" marker-end="url(#a)"/>
   <path class="ln" d="M692 406 H756" marker-end="url(#a)"/>
+  <path class="ln" d="M204 494 H268" marker-end="url(#a)"/>
+  <path class="ln" d="M448 494 H512" marker-end="url(#a)"/>
+  <path class="ln" d="M692 494 H756" marker-end="url(#a)"/>
 
   <!-- Boxes -->
-  <rect class="ext" x="756" y="24" width="180" height="412" rx="10"/><text x="846" y="221">Postgres</text><text class="sub" x="846" y="239">jobs table</text>
+  <rect class="ext" x="756" y="24" width="180" height="500" rx="10"/><text x="846" y="265">Postgres</text><text class="sub" x="846" y="283">jobs table</text>
   <rect class="ext" x="24" y="24" width="180" height="60" rx="10"/><text x="114" y="54">POST /jobs</text>
   <rect class="queue" x="268" y="24" width="180" height="60" rx="10"/><text x="358" y="45">addJob()</text><text class="sub" x="358" y="63">jobs.go</text>
   <rect class="queue" x="512" y="24" width="180" height="60" rx="10"/><text x="602" y="45">jobStore.Add()</text><text class="sub" x="602" y="63">Checks Waiting() first.</text>
@@ -70,10 +73,13 @@
   <rect class="ext" x="24" y="200" width="180" height="60" rx="10"/><text x="114" y="230">POST /jobs/{id}/done</text>
   <rect class="queue" x="268" y="200" width="180" height="60" rx="10"/><text x="358" y="221">finishJob()</text><text class="sub" x="358" y="239">jobs.go</text>
   <rect class="queue" x="512" y="200" width="180" height="60" rx="10"/><text x="602" y="221">jobStore.Done()</text><text class="sub" x="602" y="239">db.go</text>
-  <rect class="ext" x="24" y="288" width="180" height="60" rx="10"/><text x="114" y="318">Every 30 Seconds</text>
-  <rect class="queue" x="268" y="288" width="180" height="60" rx="10"/><text x="358" y="309">requeueLoop()</text><text class="sub" x="358" y="327">jobs.go</text>
-  <rect class="queue" x="512" y="288" width="180" height="60" rx="10"/><text x="602" y="309">jobStore.Requeue()</text><text class="sub" x="602" y="327">db.go</text>
-  <rect class="ext" x="24" y="376" width="180" height="60" rx="10"/><text x="114" y="406">GET /metrics</text>
-  <rect class="metrics" x="268" y="376" width="180" height="60" rx="10"/><text x="358" y="397">metrics.Handler()</text><text class="sub" x="358" y="415">pkg/metrics</text>
-  <rect class="queue" x="512" y="376" width="180" height="60" rx="10"/><text x="602" y="397">waitingJobs()</text><text class="sub" x="602" y="415">jobs.go</text>
+  <rect class="ext" x="24" y="288" width="180" height="60" rx="10"/><text x="114" y="318">POST /jobs/{id}/renew</text>
+  <rect class="queue" x="268" y="288" width="180" height="60" rx="10"/><text x="358" y="309">renewJob()</text><text class="sub" x="358" y="327">jobs.go</text>
+  <rect class="queue" x="512" y="288" width="180" height="60" rx="10"/><text x="602" y="309">jobStore.Renew()</text><text class="sub" x="602" y="327">db.go</text>
+  <rect class="ext" x="24" y="376" width="180" height="60" rx="10"/><text x="114" y="406">Every 30 Seconds</text>
+  <rect class="queue" x="268" y="376" width="180" height="60" rx="10"/><text x="358" y="397">requeueLoop()</text><text class="sub" x="358" y="415">jobs.go</text>
+  <rect class="queue" x="512" y="376" width="180" height="60" rx="10"/><text x="602" y="397">jobStore.Requeue()</text><text class="sub" x="602" y="415">db.go</text>
+  <rect class="ext" x="24" y="464" width="180" height="60" rx="10"/><text x="114" y="494">GET /metrics</text>
+  <rect class="metrics" x="268" y="464" width="180" height="60" rx="10"/><text x="358" y="485">metrics.Handler()</text><text class="sub" x="358" y="503">pkg/metrics</text>
+  <rect class="queue" x="512" y="464" width="180" height="60" rx="10"/><text x="602" y="485">waitingJobs()</text><text class="sub" x="602" y="503">jobs.go</text>
 </svg>

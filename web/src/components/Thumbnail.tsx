@@ -7,9 +7,10 @@ type Props = {
 }
 
 export function Thumbnail({ video }: Props) {
-  // There's no poster to show until a worker has converted the video, so show
-  // a plain placeholder instead. A stream has a poster as soon as it's live.
-  if (video.status === 'processing') {
+  // There's no poster to show until a worker has converted the video, or if
+  // it failed, so show a plain placeholder instead. A stream has a poster as
+  // soon as it's live.
+  if (video.status === 'processing' || video.status === 'failed') {
     return (
       <div className="thumbnail thumbnail-pending">
         <VideoIcon size={32} />
@@ -23,8 +24,8 @@ export function Thumbnail({ video }: Props) {
           loading="lazy" waits to fetch images until they're near the screen. */}
       <img src={posterUrl(video.id)} alt="" loading="lazy" />
       {/* A stream shows a "Live" badge in place of its length, which isn't
-          known until it ends. The length is null for videos converted before
-          Phase 3, or when FFmpeg couldn't tell. */}
+          known until it ends. The length is null for videos converted by an
+          older version of Flick, or when FFmpeg couldn't tell. */}
       {video.status === 'live' ? (
         <span className="duration live">Live</span>
       ) : (

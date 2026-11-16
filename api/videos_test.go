@@ -1,7 +1,7 @@
 package main
 
-// Tests for the handlers in videos.go and files.go. They use a fake in-memory
-// database and file store, so `go test` needs no Postgres or Docker.
+// This file tests the handlers in videos.go and files.go. A fake database and
+// file store keep data in memory, so `go test` needs no Postgres or Docker.
 
 import (
 	"bytes"
@@ -68,7 +68,7 @@ func (f *fakeRepo) AddCounts(_ context.Context, counts []viewCount) error {
 	return nil
 }
 
-// fakeQueue stands in for the job queue and records each video it's asked to
+// fakeQueue stands in for the queue and records each video it's asked to
 // convert. Set err to make Add fail.
 type fakeQueue struct {
 	added []uuid.UUID
@@ -160,8 +160,18 @@ func upload(h http.Handler, body *bytes.Buffer, contentType string) *httptest.Re
 	return rec
 }
 
-// A good upload replies 201, saves the file, stores the trimmed title, and
-// adds a job to convert the video.
+// The title limit counts characters, not bytes, the same as the website. A
+// title of 200 Japanese characters is 600 bytes, and is still allowed.
+func TestCreateVideoCountsTitleCharacters(t *testing.T) {
+	_, _, _, h := newTestServer()
+	body, ct := multipartBody(t, formPart{"title", strings.Repeat("動", maxTitleChars)}, formPart{"file", "x"})
+	if rec := upload(h, body, ct); rec.Code != http.StatusCreated {
+		t.Errorf("status = %d, body = %q, want 201", rec.Code, rec.Body)
+	}
+}
+
+// A good upload replies 201, saves the file and the trimmed title, and adds a
+// job to convert the video.
 func TestCreateVideo(t *testing.T) {
 	files, repo, jobs, h := newTestServer()
 	body, ct := multipartBody(t, formPart{"title", "  My clip  "}, formPart{"file", "fake video bytes"})
@@ -203,7 +213,7 @@ func TestCreateVideoRejectsBadInput(t *testing.T) {
 		{"missing title", []formPart{{"file", "x"}}},
 		{"blank title", []formPart{{"title", "   "}, {"file", "x"}}},
 		{"missing file", []formPart{{"title", "t"}}},
-		{"title too long", []formPart{{"title", strings.Repeat("a", maxTitleBytes+1)}, {"file", "x"}}},
+		{"title too long", []formPart{{"title", strings.Repeat("a", maxTitleChars+1)}, {"file", "x"}}},
 		{"two files", []formPart{{"title", "t"}, {"file", "x"}, {"file", "y"}}},
 	}
 	for _, tt := range tests {
@@ -279,7 +289,7 @@ func TestCreateVideoUndoesUploadWhenQueueFails(t *testing.T) {
 	}
 }
 
-// An empty list is [] (not null), and videos come newest first.
+// An empty list is sent as [], not null, and videos come newest first.
 func TestListVideos(t *testing.T) {
 	_, repo, _, h := newTestServer()
 

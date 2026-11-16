@@ -1,11 +1,13 @@
-// A small router for the three pages: home ("/"), watch ("/watch?v=<id>")
-// and the creator dashboard ("/dashboard"). The page is read from the address
-// bar, so links can be shared and the back button works. Nginx and Vite send
-// index.html for any path, so opening a /watch link directly also works.
+// This file is a small router for the three pages: home ("/"), watch
+// ("/watch?v=<id>") and the creator dashboard ("/dashboard"). The page is read
+// from the address bar, so links can be shared and the back button works. Nginx
+// and Vite send index.html for any path, so opening a /watch link directly also
+// works.
 
 import { useSyncExternalStore } from 'react'
 
-// The name of our own browser event, fired whenever navigate() changes page.
+// This is the name of our own browser event, which navigate() fires whenever
+// it changes page.
 const NAVIGATE_EVENT = 'flick:navigate'
 
 // Calls onChange whenever the address may have changed, and returns a
@@ -28,30 +30,30 @@ function currentWatchId(): string | null {
     : null
 }
 
-// A React hook that returns the ID of the video being watched, or null on any
+// This React hook returns the ID of the video being watched, or null on any
 // other page. useSyncExternalStore re-renders the component whenever
 // subscribe reports a change.
 export function useWatchId(): string | null {
   return useSyncExternalStore(subscribe, currentWatchId)
 }
 
-// A React hook that returns the page's path, such as "/" or "/dashboard".
+// This React hook returns the page's path, such as "/" or "/dashboard".
 export function usePathname(): string {
   return useSyncExternalStore(subscribe, () => window.location.pathname)
 }
 
-// The address of the creator dashboard.
+// This is the address of the creator dashboard.
 export const dashboardUrl = '/dashboard'
 
-// The address of a video's watch page. encodeURIComponent escapes characters
-// that would break the address.
+// Returns the address of a video's watch page. encodeURIComponent escapes
+// characters that would break the address.
 export function watchUrl(id: string): string {
   return `/watch?v=${encodeURIComponent(id)}`
 }
 
-// Changes page without reloading the site.
+// Changes page without reloading the website.
 export function navigate(url: string) {
   window.history.pushState(null, '', url) // This updates the address bar and the back-button history.
   window.dispatchEvent(new Event(NAVIGATE_EVENT)) // This tells the hooks above to read the address again.
-  window.scrollTo(0, 0) // This starts at the top, like a normal page load.
+  window.scrollTo(0, 0) // This starts at the top, the same as a normal page load.
 }

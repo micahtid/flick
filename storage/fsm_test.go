@@ -1,7 +1,8 @@
 package main
 
-// Tests for the chunk map in fsm.go. They call Apply, Snapshot and Restore
-// directly, the way Raft would, so `go test` needs no cluster or Docker.
+// This file tests the chunk map in fsm.go. The tests call Apply, Snapshot and
+// Restore directly, the way Raft would, so `go test` needs no cluster or
+// Docker.
 
 import (
 	"bytes"
@@ -32,8 +33,8 @@ func (s *fakeSink) ID() string    { return "test" }
 func (s *fakeSink) Cancel() error { return nil }
 func (s *fakeSink) Close() error  { return nil }
 
-// add joins nodes without repeats, and remove takes them away. A chunk with
-// no nodes left is dropped from the map.
+// An add joins nodes without repeats, and a remove takes them away. A chunk
+// with no nodes left is dropped from the map.
 func TestApply(t *testing.T) {
 	f := newFSM()
 	applyChange(t, f, change{Op: opAdd, ChunkID: "c1", Nodes: []string{"b", "a"}})

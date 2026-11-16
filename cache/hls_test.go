@@ -1,7 +1,7 @@
 package main
 
-// Tests for the handlers in hls.go. They use a fake API, run by httptest on
-// a local port, so `go test` needs no Docker.
+// This file tests the handlers in hls.go. The tests use a fake API, run by
+// httptest on a local port, so `go test` needs no Docker.
 
 import (
 	"encoding/json"

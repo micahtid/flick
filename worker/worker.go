@@ -1,8 +1,9 @@
 package main
 
-// The work itself: claim a job, convert the video to HLS (see hls.go), save
-// the HLS files, mark the video ready, and mark the job done. Then do it all
-// again.
+// This file holds the work loop: claim a job, convert the video to HLS (see
+// hls.go), save the HLS files, mark the video ready and mark the job done.
+// Then do it all again. A job that keeps failing is given up on after
+// maxAttempts tries.
 
 import (
 	"context"
@@ -18,9 +19,18 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-// idleDelay is how long to wait before asking again when there's no job, or
-// when the queue can't be reached.
-const idleDelay = 2 * time.Second
+// These set how the worker waits and retries.
+const (
+	// idleDelay is how long to wait before asking again when there's no job,
+	// or when the queue can't be reached.
+	idleDelay = 2 * time.Second
+	// renewEvery is how often the worker tells the queue it's still busy with
+	// a job. It's well under the queue's 5-minute limit.
+	renewEvery = time.Minute
+	// maxAttempts is how many times a job is tried before the worker gives up
+	// and marks its video failed.
+	maxAttempts = 3
+)
 
 // These count finished and failed jobs. Prometheus reads them from /metrics.
 var (
@@ -30,7 +40,7 @@ var (
 	})
 	jobsFailed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "jobs_failed_total",
-		Help: "Jobs that failed and were left for the queue to hand out again.",
+		Help: "Failed tries at converting a video.",
 	})
 )
 
@@ -39,12 +49,14 @@ var (
 type jobQueue interface {
 	Claim(ctx context.Context) (job Job, ok bool, err error)
 	Done(ctx context.Context, id uuid.UUID) error
+	Renew(ctx context.Context, id uuid.UUID) error
 }
 
 // videoRepo lists the database actions the worker needs. videoStore in db.go
 // is the real one, and the tests use a fake.
 type videoRepo interface {
 	MarkReady(ctx context.Context, id uuid.UUID, duration float64) error
+	MarkFailed(ctx context.Context, id uuid.UUID) error
 }
 
 // fileStore lists the file actions the worker needs. chunk.Store in pkg/chunk
@@ -86,20 +98,78 @@ func (w *worker) next(ctx context.Context) bool {
 		return false
 	}
 
-	if err := w.process(ctx, job); err != nil {
-		// Leave the job unfinished. The queue hands it out again after a few
-		// minutes, which is how failed jobs get retried.
-		log.Printf("job %s failed: %v", job.ID, err)
-		jobsFailed.Inc()
+	// A job claimed more than maxAttempts times has already failed on every
+	// try, or its worker crashed every time, so give up on it.
+	if job.Attempts > maxAttempts {
+		w.giveUp(ctx, job)
 		return true
 	}
-	jobsDone.Inc()
+
+	stop := w.keepClaim(ctx, job.ID, renewEvery)
+	err = w.process(ctx, job)
+	stop()
+	if err == nil {
+		jobsDone.Inc()
+		return true
+	}
+
+	log.Printf("job %s failed: %v", job.ID, err)
+	// A job cut short because the worker is stopping didn't fail, so it isn't
+	// counted.
+	if ctx.Err() != nil {
+		return true
+	}
+	jobsFailed.Inc()
+	// Leave the job unfinished, so the queue hands it out again after a few
+	// minutes. That's how failed jobs get retried. After the last try, give up
+	// straight away instead.
+	if job.Attempts >= maxAttempts {
+		w.giveUp(ctx, job)
+	}
 	return true
+}
+
+// keepClaim renews the claim on a job every interval, in the background, so
+// the queue doesn't hand a slow job to a second worker. Calling the returned
+// function stops it.
+func (w *worker) keepClaim(ctx context.Context, id uuid.UUID, every time.Duration) (stop func()) {
+	ctx, cancel := context.WithCancel(ctx)
+	go func() {
+		ticker := time.NewTicker(every)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
+			// A failed renewal is only logged. The job keeps going, and the
+			// next renewal may work.
+			if err := w.queue.Renew(ctx, id); err != nil && ctx.Err() == nil {
+				log.Printf("renew job %s: %v", id, err)
+			}
+		}
+	}()
+	return cancel
+}
+
+// giveUp marks a job's video failed, so the website stops waiting for it, and
+// marks the job done, so it's never handed out again. If either step fails,
+// the job is handed out again later, and given up on then.
+func (w *worker) giveUp(ctx context.Context, job Job) {
+	log.Printf("job %s: giving up on video %s", job.ID, job.VideoID)
+	if err := w.videos.MarkFailed(ctx, job.VideoID); err != nil {
+		log.Printf("mark video %s failed: %v", job.VideoID, err)
+		return
+	}
+	if err := w.queue.Done(ctx, job.ID); err != nil {
+		log.Printf("finish job %s: %v", job.ID, err)
+	}
 }
 
 // process converts a job's video, saves the HLS files, marks the video ready
 // with its length, and marks the job done, in that order. If a later step
-// fails, the job is simply done again later, which does no harm.
+// fails, the whole job runs again later, which does no harm.
 //
 // FFmpeg needs real files on disk, so the work happens in a temporary folder:
 // the upload is rebuilt there, converted, and the results saved to the

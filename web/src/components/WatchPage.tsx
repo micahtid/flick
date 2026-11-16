@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import type { Video } from '../api'
+import type { Video, VideoStatus } from '../api'
 import { formatDate } from '../format'
 import { watchUrl } from '../router'
 import { Chat } from './Chat'
@@ -11,12 +11,20 @@ import { VideoMeta } from './VideoMeta'
 // loads it the first time the player is shown, so the home page loads faster.
 const Player = lazy(() => import('./Player').then((module) => ({ default: module.Player })))
 
+// A video with one of these statuses has nothing to play yet, so the message
+// is shown in place of the player.
+const NO_PLAYER_MESSAGES: Partial<Record<VideoStatus, string>> = {
+  processing: "This Video Is Still Processing. It Will Play Here Once It's Ready.",
+  failed: "This Video Couldn't Be Converted. Try Uploading It Again.",
+}
+
 type Props = {
   video: Video
   others: Video[]
 }
 
 export function WatchPage({ video, others }: Props) {
+  const noPlayerMessage = NO_PLAYER_MESSAGES[video.status]
   return (
     <div className="watch">
       <div className="watch-main">
@@ -24,9 +32,9 @@ export function WatchPage({ video, others }: Props) {
             list keeps reloading until then, so it appears without a refresh.
             A stream plays as soon as it's live, and switches to the finished
             video once it ends. */}
-        {video.status === 'processing' ? (
+        {noPlayerMessage ? (
           <div className="player player-pending" role="status">
-            <p>This Video Is Still Processing. It Will Play Here Once It's Ready.</p>
+            <p>{noPlayerMessage}</p>
           </div>
         ) : (
           // Suspense shows an empty player box while hls.js loads.

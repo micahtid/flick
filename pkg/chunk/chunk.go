@@ -1,8 +1,14 @@
 // Package chunk stores files on the storage nodes. It cuts each file into
 // 4 MB chunks, sends every chunk to the nodes, and records which nodes saved
-// it in the nodes' chunk map. When the file is read, it asks the map
-// where each chunk is and puts the chunks back together. The API, the
-// workers and the ingest service all use it.
+// it in the chunk map. The chunk map is a small table, kept by the nodes, that
+// lists the nodes holding each chunk. To read a file back, the package asks
+// the map where each chunk is and puts the chunks back together. The API, the
+// worker and the ingest service all use it.
+//
+// The nodes use Raft to keep the map the same on every node. One node, the
+// leader, makes every change to the map and copies it to the others, the
+// followers. If the leader stops, the others hold an election (a vote) to
+// choose a new one.
 package chunk
 
 import (
@@ -40,8 +46,8 @@ type mapChange struct {
 }
 
 // ID is a chunk's name: the SHA-256 fingerprint of its bytes, written as 64
-// hex characters. Because the name is the fingerprint, a node can check a
-// chunk isn't damaged with nothing else stored.
+// hex characters. Because the name is the fingerprint, a node can check that a
+// chunk isn't damaged without storing anything else.
 func ID(data []byte) string {
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:])
@@ -52,7 +58,7 @@ type Client struct {
 	nodes []string // These are the node addresses, such as http://node1:9001.
 	http  *http.Client
 
-	mu     sync.Mutex           // Requests run at the same time, so guard restAt.
+	mu     sync.Mutex           // Requests run at the same time, so this guards restAt.
 	restAt map[string]time.Time // This is when each node last started resting.
 }
 
@@ -198,8 +204,9 @@ func (c *Client) readAny(ctx context.Context, id string) ([]byte, error) {
 	return nil, fmt.Errorf("chunk %s on no node: %w", id, errors.Join(errs...))
 }
 
-// holders asks the chunk map which nodes hold a chunk. Any node can answer,
-// so it asks them one at a time. It returns nil if no node answers.
+// holders asks the chunk map which nodes hold a chunk. Any node can answer
+// from its own copy of the map, so it tries them one at a time until one does.
+// It returns nil if none answers.
 func (c *Client) holders(ctx context.Context, id string) []string {
 	for _, node := range c.order(nil) {
 		body, err := c.send(ctx, http.MethodGet, node, "/map/"+id, nil, http.StatusOK)
@@ -228,7 +235,8 @@ func (c *Client) read(ctx context.Context, node, id string) ([]byte, error) {
 }
 
 // send makes one request to a node, and returns the reply body. Any status
-// other than want is an error. If the node can't be reached at all, it rests.
+// other than want is an error. If the node can't be reached at all, it rests,
+// so later requests try it last.
 func (c *Client) send(ctx context.Context, method, node, path string, body []byte, want int) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, method, node+path, bytes.NewReader(body))
 	if err != nil {

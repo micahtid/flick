@@ -1,6 +1,7 @@
 // Package main is the Flick edge cache. Nginx forwards every /hls request
-// here. It keeps the most recently watched segments in memory, so a popular
-// video's segments are fetched from the API once instead of once per viewer.
+// here. It keeps the most recently watched segments (short pieces of video)
+// in memory, so a popular video's segments are fetched from the API once
+// instead of once per viewer.
 package main
 
 import (
@@ -26,14 +27,14 @@ func main() {
 	}
 }
 
-// run starts the cache and keeps it running until it is told to stop.
+// run starts the cache and keeps it running until it's told to stop.
 func run() error {
-	// ctx is cancelled when the program is told to stop: Ctrl+C, or SIGTERM,
-	// which is what `docker compose down` sends.
+	// ctx is cancelled when the program is told to stop, by Ctrl+C or by
+	// SIGTERM. Docker sends SIGTERM when it stops a container.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Read the settings from environment variables, which docker-compose.yml sets.
+	// Read the settings from environment variables set in docker-compose.yml.
 	port := getenv("PORT", "8082")
 	apiURL := getenv("API_URL", "http://api:8080")
 	maxMB, err := strconv.Atoi(getenv("CACHE_MAX_MB", "500"))
@@ -42,7 +43,7 @@ func run() error {
 	}
 
 	// Give up on the API after 30 seconds, so a stuck request can't hold a
-	// viewer forever. << 20 converts MB to bytes.
+	// viewer forever. maxMB<<20 turns megabytes into bytes.
 	s, err := newServer(apiURL, newLRU(maxMB<<20), &http.Client{Timeout: 30 * time.Second})
 	if err != nil {
 		return err

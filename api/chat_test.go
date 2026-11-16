@@ -1,7 +1,7 @@
 package main
 
-// Tests for the chat handler in chat.go. They use a fake hub in place of
-// Redis, so `go test` needs no Redis or Docker.
+// This file tests the chat handler in chat.go. A fake hub stands in for Redis,
+// so `go test` needs no Redis or Docker.
 
 import (
 	"context"

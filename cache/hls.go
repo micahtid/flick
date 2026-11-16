@@ -1,9 +1,10 @@
 package main
 
-// The HTTP side of the cache: the list of routes and one handler per
-// endpoint. Nginx forwards /hls/... here. Segments are sent from the cache
-// when it has them, and fetched from the API and kept when it doesn't. Every
-// other HLS file, such as a playlist, passes straight through to the API.
+// This file handles the cache's requests. Nginx forwards /hls/... here. HLS
+// splits a video into short segments, listed by playlists. A segment is sent
+// from the cache when it's there. When it isn't, it's fetched from the API and
+// kept. Every other HLS file, such as a playlist, passes straight through to
+// the API.
 
 import (
 	"context"
@@ -40,8 +41,8 @@ type server struct {
 	proxy *httputil.ReverseProxy
 	// fetches lets viewers who miss the same segment at once share one fetch.
 	fetches singleflight.Group
-	// These count segment requests. They're atomic, since many requests
-	// update them at once.
+	// These count segment requests. Many requests update them at once, so
+	// they're atomic numbers, which stay correct when changed from many places.
 	hits, misses atomic.Int64
 }
 

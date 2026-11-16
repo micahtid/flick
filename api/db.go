@@ -1,7 +1,7 @@
 package main
 
-// Everything that talks to Postgres: connecting, creating the tables, and the
-// queries the API uses.
+// This file talks to Postgres: it connects, creates the tables, and runs the
+// queries the handlers need.
 
 import (
 	"context"
@@ -15,19 +15,18 @@ import (
 	"github.com/micahtid/flick/pkg/chunk"
 )
 
-// schema creates the tables, one statement at a time. IF NOT EXISTS makes
-// each one safe to run on every start. Each row of videos is one video. Its
-// status is "processing" until a worker has converted the file, then "ready".
-// The worker also fills in duration, the length in seconds. The ingest
-// service adds a live stream with the status "live", and sets it to "ready"
-// with its length once the stream ends. views and watch_seconds are the
-// video's views and total watch time, which flushLoop in views.go adds to
-// once a minute.
+// schema creates the tables, one statement at a time. IF NOT EXISTS makes each
+// one safe to run on every start. Each row of videos is one video. Its status
+// is "processing" until a worker has converted the file, then "ready", or
+// "failed" if the worker gave up. The worker also fills in duration, the length
+// in seconds. The ingest service adds a live stream with the status "live", and
+// sets it to "ready" with its length once the stream ends. views and
+// watch_seconds are the video's views and total watch time, which flushLoop in
+// views.go adds to once a minute.
 //
-// The first ALTER adds duration to a table made before Phase 3. Videos
-// converted before then have no duration, so it stays empty (NULL) for them.
-// The other two add views and watch_seconds to a table made before Phase 8,
-// starting at 0.
+// The ALTERs add newer columns to a table made by an older version of Flick.
+// Old videos have no duration, so it stays empty (NULL) for them, and their
+// views and watch_seconds start at 0.
 //
 // chunk.Schema creates the files table, which lists the chunks of every file
 // on the storage nodes.
@@ -47,14 +46,14 @@ var schema = []string{
 	chunk.Schema,
 }
 
-// At startup, try to reach Postgres up to 10 times, 1 second apart.
+// These make startup try to reach Postgres up to 10 times, 1 second apart.
 const (
 	connectAttempts = 10
 	connectDelay    = time.Second
 )
 
-// connectDB connects to Postgres, waits until it's ready, and sets up the
-// table. Docker often starts the API before Postgres has finished starting,
+// connectDB connects to Postgres, waits until it's ready, and creates the
+// tables. Docker often starts the API before Postgres has finished starting,
 // so the first few tries are expected to fail.
 func connectDB(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	// A pool keeps several connections open and shares them between requests.
@@ -78,8 +77,8 @@ func connectDB(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	return db, nil
 }
 
-// pingWithRetry checks that Postgres answers, retrying until it does or the
-// attempts run out.
+// pingWithRetry checks that Postgres answers, and tries again until it does
+// or the tries run out.
 func pingWithRetry(ctx context.Context, db *pgxpool.Pool) error {
 	var err error
 	for attempt := 1; attempt <= connectAttempts; attempt++ {
@@ -125,7 +124,7 @@ func (s *videoStore) Create(ctx context.Context, id uuid.UUID, title string) (Vi
 	// copies them into v.
 	//
 	// The status is set here, not left to the table's default, because a table
-	// made in Phase 1 still has the old default of "ready".
+	// made by an older version of Flick still has the old default of "ready".
 	err := s.db.QueryRow(ctx,
 		`INSERT INTO videos (id, title, status) VALUES ($1, $2, 'processing') RETURNING status, created_at`,
 		id, title,
@@ -149,7 +148,8 @@ func (s *videoStore) List(ctx context.Context) ([]Video, error) {
 	}
 	defer rows.Close()
 
-	// Start with an empty list rather than nil, so no videos is sent as [] instead of null.
+	// Start with an empty list rather than nil, so an empty list is sent as []
+	// instead of null.
 	videos := []Video{}
 	for rows.Next() {
 		var v Video

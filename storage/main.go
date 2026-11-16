@@ -1,8 +1,10 @@
 // Package main is a Flick storage node. It saves chunks of files on its own
 // disk and hands them back. Three nodes run at once, and every chunk ends up
 // on all of them, so losing one node loses nothing. The nodes also share a
-// chunk map, kept the same on every node by Raft, and the leader uses it to
-// copy chunks to any node that missed them.
+// chunk map, which lists the nodes that hold each chunk. Raft, a way for
+// several machines to agree on the same data, keeps the map the same on every
+// node. One node, the leader, makes every change to the map. It also copies
+// chunks to any node that missed them.
 package main
 
 import (
@@ -30,14 +32,14 @@ func main() {
 	}
 }
 
-// run starts the node and keeps it running until it is told to stop.
+// run starts the node and keeps it running until it's told to stop.
 func run() error {
-	// ctx is cancelled when the program is told to stop: Ctrl+C, or SIGTERM,
-	// which is what `docker compose stop` sends.
+	// ctx is cancelled when the program is told to stop, by Ctrl+C or by
+	// SIGTERM. Docker sends SIGTERM when it stops a container.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Read the settings from environment variables, which docker-compose.yml sets.
+	// Read the settings from environment variables set in docker-compose.yml.
 	nodeID := getenv("NODE_ID", "node1")
 	storageNodes := getenv("STORAGE_NODES", "http://node1:9001,http://node2:9002,http://node3:9003")
 	bootstrap := os.Getenv("BOOTSTRAP") == "true" // Only node1 sets this.
@@ -61,8 +63,8 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	// Stop Raft on the way out. Deferred calls run last first, so this runs
-	// after the server below has stopped.
+	// Stop Raft on the way out. Deferred calls run in reverse order, so this
+	// runs after the server below has stopped.
 	defer func() { r.Shutdown().Error() }()
 
 	n := &node{
@@ -77,7 +79,7 @@ func run() error {
 	}
 	go n.repairLoop(ctx)
 
-	// Prometheus calls these each time it reads /metrics.
+	// Prometheus calls these functions each time it reads /metrics.
 	promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Name: "raft_is_leader",
 		Help: "1 if this node is the leader, 0 if not.",
@@ -99,8 +101,8 @@ func run() error {
 		IdleTimeout:       2 * time.Minute,
 	}
 
-	// Run the server in the background, and wait for it to fail or for a
-	// stop signal, whichever comes first.
+	// Run the server in the background (a goroutine) so this function can also
+	// wait for a stop signal. If the server fails, its error arrives on errc.
 	errc := make(chan error, 1)
 	go func() {
 		log.Printf("%s listening on :%s", nodeID, self.port)

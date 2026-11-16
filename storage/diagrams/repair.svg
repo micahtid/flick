@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 816 108" width="816" height="108" role="img" aria-label="How the leader repairs missing copies">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1022 108" width="1022" height="108" role="img" aria-label="How the leader repairs missing copies">
   <style>
     text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 14px; fill: #1f2328; text-anchor: middle; dominant-baseline: central; }
     .sub { font-size: 12px; fill: #57606a; }
@@ -46,10 +46,12 @@
   <path class="ln" d="M174 54 H230" marker-end="url(#a)"/>
   <path class="ln" d="M380 54 H436" marker-end="url(#a)"/>
   <path class="ln" d="M586 54 H642" marker-end="url(#a)"/>
+  <path class="ln" d="M792 54 H848" marker-end="url(#a)"/>
 
   <!-- Boxes -->
   <rect class="storage" x="24" y="24" width="150" height="60" rx="10"/><text x="99" y="45">repairLoop()</text><text class="sub" x="99" y="63">repair.go</text>
-  <rect class="storage" x="230" y="24" width="150" height="60" rx="10"/><text x="305" y="45">plan()</text><text class="sub" x="305" y="63">repair.go</text>
-  <rect class="storage" x="436" y="24" width="150" height="60" rx="10"/><text x="511" y="45">copyChunk()</text><text class="sub" x="511" y="63">repair.go</text>
-  <rect class="storage" x="642" y="24" width="150" height="60" rx="10"/><text x="717" y="45">apply()</text><text class="sub" x="717" y="63">cluster.go</text>
+  <rect class="storage" x="230" y="24" width="150" height="60" rx="10"/><text x="305" y="45">saved()</text><text class="sub" x="305" y="63">repair.go</text>
+  <rect class="storage" x="436" y="24" width="150" height="60" rx="10"/><text x="511" y="45">plan()</text><text class="sub" x="511" y="63">repair.go</text>
+  <rect class="storage" x="642" y="24" width="150" height="60" rx="10"/><text x="717" y="45">copyChunk()</text><text class="sub" x="717" y="63">repair.go</text>
+  <rect class="storage" x="848" y="24" width="150" height="60" rx="10"/><text x="923" y="45">apply()</text><text class="sub" x="923" y="63">cluster.go</text>
 </svg>

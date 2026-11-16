@@ -12,7 +12,6 @@ x-storage: &storage
   build: { context: ., dockerfile: storage/Dockerfile }
 
 services:
-  # These services start in Phase 1.
   db:
     image: postgres:16
     environment:
@@ -22,7 +21,7 @@ services:
       - dbdata:/var/lib/postgresql/data
 
   # Every Go service builds from the project folder, so it can use the shared
-  # packages in pkg/. Phase 4 added pkg/chunk, and Phase 8 added pkg/metrics.
+  # packages in pkg/chunk and pkg/metrics.
   api:
     build: { context: ., dockerfile: api/Dockerfile }
     environment:
@@ -41,7 +40,6 @@ services:
     ports: ["80:80"]
     depends_on: [api, cache]
 
-  # These services start in Phase 2.
   queue:
     build: { context: ., dockerfile: queue/Dockerfile }
     environment:
@@ -49,9 +47,10 @@ services:
     ports: ["8081:8081"]
     depends_on: [db]
 
-  # This is one service, so Compose can start as many copies as `--scale` asks for.
-  # Each copy reads uploads from the storage nodes and saves HLS files back.
-  # Prometheus finds every copy, and reads its numbers on port 8090.
+  # The worker is one service, so Compose can start as many copies as
+  # `--scale` asks for. Each copy reads uploads from the storage nodes and
+  # saves HLS files back. Prometheus finds every copy, and reads its numbers on
+  # port 8090.
   worker:
     build: { context: ., dockerfile: worker/Dockerfile }
     environment:
@@ -60,9 +59,9 @@ services:
       STORAGE_NODES: *storage-nodes
     depends_on: [queue, db, node1, node2, node3]
 
-  # These services start in Phase 4. Each node has its own volume, which acts
-  # like its own disk. In Phase 5 the nodes also talk to each other with Raft,
-  # on ports 10001 to 10003. node1 sets up the cluster the first time it starts.
+  # Each node has its own volume, which acts like its own disk. The nodes also
+  # talk to each other with Raft, on ports 10001 to 10003. node1 sets up the
+  # cluster the first time it starts.
   node1:
     <<: *storage
     environment: { NODE_ID: node1, STORAGE_NODES: *storage-nodes, BOOTSTRAP: "true" }
@@ -79,8 +78,8 @@ services:
     ports: ["9003:9003"]
     volumes: [node3data:/chunks]
 
-  # This service starts in Phase 6. It keeps up to CACHE_MAX_MB of segments
-  # in memory, so changing the limit needs only a restart, not a rebuild.
+  # The cache keeps up to CACHE_MAX_MB of segments in memory, so changing the
+  # limit needs only a restart, not a rebuild.
   cache:
     build: { context: ., dockerfile: cache/Dockerfile }
     environment:
@@ -89,14 +88,14 @@ services:
     ports: ["8082:8082"]
     depends_on: [api]
 
-  # These services start in Phase 7. Redis passes each chat message to every
-  # copy of the API. The ingest service takes streams from OBS on port 1935,
-  # and saves them on the storage nodes. It also needs the API, which creates
-  # the videos and files tables. Prometheus reads its numbers on port 8083.
+  # Redis passes each chat message to every copy of the API.
   redis:
     image: redis:7
     ports: ["6379:6379"]
 
+  # The ingest service takes streams from OBS on port 1935, and saves them on
+  # the storage nodes. It also needs the API, which creates the videos and
+  # files tables. Prometheus reads its numbers on port 8083.
   ingest:
     build: { context: ., dockerfile: ingest/Dockerfile }
     environment:
@@ -105,9 +104,9 @@ services:
     ports: ["1935:1935"]
     depends_on: [db, api, node1, node2, node3]
 
-  # These services start in Phase 8. Prometheus reads /metrics from every
-  # service every 15 seconds. Grafana draws the numbers on a dashboard, which
-  # it loads from monitoring/grafana/ when it starts.
+  # Prometheus reads /metrics from every service every 15 seconds. Grafana draws
+  # the numbers on a dashboard, which it loads from monitoring/grafana/ when it
+  # starts.
   prometheus:
     image: prom/prometheus:v3.5.0
     ports: ["9090:9090"]

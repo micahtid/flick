@@ -1,8 +1,8 @@
 package main
 
-// Tests for the work loop in worker.go and the queue client in queue.go. They
-// use fakes and a pretend queue, so `go test` needs no FFmpeg, Postgres or
-// Docker.
+// This file tests the work loop in worker.go and the queue client in
+// queue.go. Fakes and a pretend queue stand in for the real services, so
+// `go test` needs no FFmpeg, Postgres or Docker.
 
 import (
 	"context"
@@ -13,17 +13,22 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 )
 
 // fakeQueue hands out its jobs in order, and records which ones were marked
-// done.
+// done or renewed. mu guards renewed, since keepClaim renews in the
+// background.
 type fakeQueue struct {
-	jobs []Job
-	done []uuid.UUID
+	jobs    []Job
+	done    []uuid.UUID
+	mu      sync.Mutex
+	renewed []uuid.UUID
 }
 
 func (f *fakeQueue) Claim(context.Context) (Job, bool, error) {
@@ -40,16 +45,29 @@ func (f *fakeQueue) Done(_ context.Context, id uuid.UUID) error {
 	return nil
 }
 
-// fakeVideos records which videos were marked ready, and the last length
-// saved.
+func (f *fakeQueue) Renew(_ context.Context, id uuid.UUID) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.renewed = append(f.renewed, id)
+	return nil
+}
+
+// fakeVideos records which videos were marked ready or failed, and the last
+// length saved.
 type fakeVideos struct {
 	ready    []uuid.UUID
+	failed   []uuid.UUID
 	duration float64
 }
 
 func (f *fakeVideos) MarkReady(_ context.Context, id uuid.UUID, duration float64) error {
 	f.ready = append(f.ready, id)
 	f.duration = duration
+	return nil
+}
+
+func (f *fakeVideos) MarkFailed(_ context.Context, id uuid.UUID) error {
+	f.failed = append(f.failed, id)
 	return nil
 }
 
@@ -79,10 +97,10 @@ func (f *fakeFiles) Copy(_ context.Context, w io.Writer, path string) error {
 	return err
 }
 
-// newTestWorker makes a worker with one waiting job, whose upload is in the
-// store. convertErr is what the fake conversion returns.
+// newTestWorker makes a worker with one waiting job, on its first try, whose
+// upload is in the store. convertErr is what the fake conversion returns.
 func newTestWorker(convertErr error) (*worker, *fakeQueue, *fakeVideos, *fakeFiles, Job) {
-	job := Job{ID: uuid.New(), VideoID: uuid.New()}
+	job := Job{ID: uuid.New(), VideoID: uuid.New(), Attempts: 1}
 	queue := &fakeQueue{jobs: []Job{job}}
 	videos := &fakeVideos{}
 	files := &fakeFiles{data: map[string][]byte{uploadPath(job.VideoID): []byte("upload")}}
@@ -148,11 +166,69 @@ func TestNextLeavesFailedJob(t *testing.T) {
 	if !w.next(context.Background()) {
 		t.Fatal("next = false, want true when a job was claimed")
 	}
-	if len(videos.ready) != 0 || len(queue.done) != 0 || len(files.saved) != 0 {
-		t.Errorf("ready = %v, done = %v, saved = %v, want all empty", videos.ready, queue.done, files.saved)
+	if len(videos.ready) != 0 || len(videos.failed) != 0 || len(queue.done) != 0 || len(files.saved) != 0 {
+		t.Errorf("ready = %v, failed = %v, done = %v, saved = %v, want all empty", videos.ready, videos.failed, queue.done, files.saved)
 	}
 	if got := testutil.ToFloat64(jobsFailed) - before; got != 1 {
 		t.Errorf("jobs_failed_total went up by %v, want 1", got)
+	}
+}
+
+// A job is given up on when its last try fails, or when it's claimed more
+// than maxAttempts times, such as after its worker kept crashing. Its video
+// is marked failed and the job done. A job claimed too often isn't converted
+// again.
+func TestNextGivesUp(t *testing.T) {
+	tests := []struct {
+		name      string
+		attempts  int
+		wantTries int
+	}{
+		{"last try fails", maxAttempts, 1},
+		{"claimed too often", maxAttempts + 1, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w, queue, videos, _, job := newTestWorker(nil)
+			queue.jobs[0].Attempts = tt.attempts
+			tries := 0
+			w.convert = func(context.Context, string, string) (float64, error) {
+				tries++
+				return 0, errors.New("ffmpeg failed")
+			}
+
+			w.next(context.Background())
+			if tries != tt.wantTries {
+				t.Errorf("converted %d times, want %d", tries, tt.wantTries)
+			}
+			if !slices.Equal(videos.failed, []uuid.UUID{job.VideoID}) || !slices.Equal(queue.done, []uuid.UUID{job.ID}) {
+				t.Errorf("failed = %v, done = %v, want the video failed and the job done", videos.failed, queue.done)
+			}
+		})
+	}
+}
+
+// keepClaim renews the job every interval, and stops once it's told to.
+func TestKeepClaim(t *testing.T) {
+	w, queue, _, _, job := newTestWorker(nil)
+	renewals := func() []uuid.UUID {
+		queue.mu.Lock()
+		defer queue.mu.Unlock()
+		return slices.Clone(queue.renewed)
+	}
+
+	stop := w.keepClaim(context.Background(), job.ID, 10*time.Millisecond)
+	time.Sleep(55 * time.Millisecond)
+	stop()
+	time.Sleep(20 * time.Millisecond) // Let a renewal already under way finish.
+
+	got := renewals()
+	if len(got) < 2 || got[0] != job.ID {
+		t.Errorf("renewed %v, want job %s renewed several times", got, job.ID)
+	}
+	time.Sleep(30 * time.Millisecond)
+	if after := renewals(); len(after) != len(got) {
+		t.Errorf("renewed %d more times after stop, want 0", len(after)-len(got))
 	}
 }
 
@@ -170,7 +246,7 @@ func TestNextWithNoJob(t *testing.T) {
 // The client reads a claimed job, treats 204 as "nothing waiting", and turns
 // any other reply into an error.
 func TestQueueClientClaim(t *testing.T) {
-	job := Job{ID: uuid.New(), VideoID: uuid.New()}
+	job := Job{ID: uuid.New(), VideoID: uuid.New(), Attempts: 2}
 	tests := []struct {
 		name    string
 		status  int
@@ -178,7 +254,7 @@ func TestQueueClientClaim(t *testing.T) {
 		wantOK  bool
 		wantErr bool
 	}{
-		{"job", http.StatusOK, `{"id": "` + job.ID.String() + `", "video_id": "` + job.VideoID.String() + `"}`, true, false},
+		{"job", http.StatusOK, `{"id": "` + job.ID.String() + `", "video_id": "` + job.VideoID.String() + `", "attempts": 2}`, true, false},
 		{"nothing waiting", http.StatusNoContent, "", false, false},
 		{"queue error", http.StatusInternalServerError, "internal server error", false, true},
 	}
@@ -207,11 +283,11 @@ func TestQueueClientClaim(t *testing.T) {
 	}
 }
 
-// Done posts to the job's address and expects 204.
-func TestQueueClientDone(t *testing.T) {
+// Done and Renew post to the job's address and expect 204.
+func TestQueueClientChangeJob(t *testing.T) {
 	id := uuid.New()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/jobs/"+id.String()+"/done" {
+		if r.URL.Path != "/jobs/"+id.String()+"/done" && r.URL.Path != "/jobs/"+id.String()+"/renew" {
 			http.NotFound(w, r)
 			return
 		}
@@ -220,10 +296,12 @@ func TestQueueClientDone(t *testing.T) {
 	defer srv.Close()
 
 	q := &queueClient{url: srv.URL, http: srv.Client()}
-	if err := q.Done(context.Background(), id); err != nil {
-		t.Errorf("Done(known job) = %v, want nil", err)
-	}
-	if err := q.Done(context.Background(), uuid.New()); err == nil {
-		t.Error("Done(unknown job) = nil, want an error")
+	for name, call := range map[string]func(context.Context, uuid.UUID) error{"Done": q.Done, "Renew": q.Renew} {
+		if err := call(context.Background(), id); err != nil {
+			t.Errorf("%s(known job) = %v, want nil", name, err)
+		}
+		if err := call(context.Background(), uuid.New()); err == nil {
+			t.Errorf("%s(unknown job) = nil, want an error", name)
+		}
 	}
 }

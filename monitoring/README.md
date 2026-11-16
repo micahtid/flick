@@ -25,7 +25,7 @@ Prometheus reads the numbers from every service every 15 seconds and keeps them.
 | Storage Nodes Up | `up{job="storage"}` | Whether each node is running. |
 | Raft Leader | `raft_is_leader` | Which node leads. |
 | Chunks Stored | `chunks_stored` | Chunks saved on each node. |
-| Conversions | `sum(increase(jobs_done_total[5m]))` and `sum(increase(jobs_failed_total[5m]))` | Jobs finished and failed in the last 5 minutes. |
+| Conversions | `sum(increase(jobs_done_total[5m]))` and `sum(increase(jobs_failed_total[5m]))` | Videos converted, and failed tries, in the last 5 minutes. A failed try is tried again, up to 3 times. |
 | Chat Connections | `sum(chat_connections)` | Viewers connected to chat. |
 
 ## Addresses
@@ -42,9 +42,7 @@ Prometheus reads the numbers from every service every 15 seconds and keeps them.
 | `docker compose restart prometheus` | Reloads `prometheus.yml` after a change. |
 | `docker compose restart grafana` | Reloads the dashboard after a change to `flick.json`. |
 
-## Additional Information: PromQL
-
-The queries are written in PromQL, Prometheus's query language.
+## Additional Information: PromQL, Prometheus's Query Language
 
 | Term | Description |
 | --- | --- |

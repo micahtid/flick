@@ -1,20 +1,20 @@
 package main
 
-// This file holds the LRU, which keeps the most recently used segments in
-// memory, up to a limit in bytes.
+// This file holds the LRU (least recently used) cache. It keeps the most
+// recently used segments in memory, up to a limit in bytes. When it's full, it
+// removes the segment that has gone unused the longest.
 
 import (
 	"container/list"
 	"sync"
 )
 
-// lru is a least recently used (LRU) cache of segments, capped at max bytes.
-// When it's full, it evicts the least recently used segment.
+// lru is the cache of segments, capped at max bytes.
 type lru struct {
 	mu    sync.Mutex               // This guards ll and items, since many viewers use the cache at once.
 	max   int                      // This is the most bytes allowed.
 	used  int                      // This is the bytes in use now.
-	ll    *list.List               // The most recently used segment is at the front.
+	ll    *list.List               // This lists the segments, most recently used first.
 	items map[string]*list.Element // This maps each segment's path to its element in ll.
 }
 
@@ -44,7 +44,7 @@ func (c *lru) Get(key string) (data []byte, ok bool) {
 }
 
 // Put adds a segment and marks it as just used. If that puts the cache over
-// its limit, it evicts the least recently used segments until it fits. A
+// its limit, it removes the least recently used segments until it fits. A
 // segment bigger than the whole cache is never kept.
 func (c *lru) Put(key string, data []byte) {
 	c.mu.Lock()

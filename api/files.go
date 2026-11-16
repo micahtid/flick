@@ -1,8 +1,9 @@
 package main
 
-// This file sends the HLS files that the workers and the ingest service make
-// to the cache. The cache asks for /hls/... here as /files/hls/..., and each
-// file is rebuilt from its chunks on the storage nodes.
+// This file sends HLS (HTTP Live Streaming) files to the cache. The workers
+// and the ingest service make these files. The cache asks for /hls/... here as
+// /files/hls/..., and each file is rebuilt from its chunks on the storage
+// nodes.
 
 import (
 	"bytes"

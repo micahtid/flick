@@ -1,10 +1,10 @@
 package main
 
-// Turning a live stream into HLS. FFmpeg writes a 2-second segment at a time
-// as the stream comes in, and a playlist that lists every segment so far. The
-// ingest service reads that playlist and writes the two that viewers load: a
-// live playlist of only the newest segments, and, once the stream ends, a
-// finished playlist of all of them.
+// This file turns a live stream into HLS (HTTP Live Streaming). FFmpeg writes
+// one 2-second segment at a time as the stream comes in, plus a playlist that
+// lists every segment so far. The ingest service reads that playlist and makes
+// the two that viewers load: a live playlist of only the newest segments and,
+// once the stream ends, a finished playlist of all of them.
 
 import (
 	"bytes"
@@ -53,7 +53,7 @@ func record(ctx context.Context, dir string) error {
 		"-listen", "1", // Wait for OBS to connect, instead of reading a file.
 		"-i", rtmpURL,
 		"-c:v", "libx264", // Use H.264, the most common video format.
-		"-preset", "veryfast", // Convert quickly, for slightly bigger files.
+		"-preset", "veryfast", // Convert quickly, at the cost of slightly bigger files.
 		"-tune", "zerolatency", // Send each frame on as soon as it's converted, to keep the delay small.
 		"-c:a", "aac", "-b:a", strconv.Itoa(audioBitrate), // Use AAC, the most common audio format.
 		// A segment can only start on a key frame (a full picture), so put one
@@ -68,9 +68,9 @@ func record(ctx context.Context, dir string) error {
 	)
 }
 
-// makePoster saves the first frame of the segment at seg as a JPEG at out,
-// shown as the stream's thumbnail and before it plays. Every segment starts
-// on a key frame, so the first frame is a full picture.
+// makePoster saves the first frame of the segment at seg as a JPEG at out.
+// The poster is the stream's thumbnail, and shows before the video plays.
+// Every segment starts on a key frame, so the first frame is a full picture.
 func makePoster(ctx context.Context, seg, out string) error {
 	return runFFmpeg(ctx,
 		"-i", seg,
@@ -104,25 +104,27 @@ func parsePlaylist(data []byte) []segment {
 }
 
 // livePlaylist lists the newest segments. The player loads it again every few
-// seconds to find new ones.
+// seconds to find new ones. The target duration counts every segment so far,
+// not only the listed ones, since HLS doesn't allow it to change mid-stream.
 func livePlaylist(segs []segment) string {
 	first := max(len(segs)-liveSegments, 0)
-	return playlist(segs[first:], first, false)
+	return playlist(segs[first:], first, targetDuration(segs), false)
 }
 
-// finalPlaylist lists every segment, and says the stream has ended, so the
+// finalPlaylist lists every segment and says the stream has ended, so the
 // player treats it as a finished video.
 func finalPlaylist(segs []segment) string {
-	return playlist(segs, 0, true)
+	return playlist(segs, 0, targetDuration(segs), true)
 }
 
-// playlist writes a playlist of segs. seq is the number of the first segment
-// in the whole stream, which tells the player where the list now starts.
-// ended marks the playlist as a finished video.
-func playlist(segs []segment, seq int, ended bool) string {
+// playlist makes the text of a playlist of segs. seq is the number of the
+// first segment in the whole stream, which tells the player where the list
+// now starts. target is the longest a segment can be, in whole seconds. ended
+// marks the playlist as a finished video.
+func playlist(segs []segment, seq, target int, ended bool) string {
 	var b strings.Builder
 	b.WriteString("#EXTM3U\n#EXT-X-VERSION:3\n")
-	fmt.Fprintf(&b, "#EXT-X-TARGETDURATION:%d\n", targetDuration(segs))
+	fmt.Fprintf(&b, "#EXT-X-TARGETDURATION:%d\n", target)
 	fmt.Fprintf(&b, "#EXT-X-MEDIA-SEQUENCE:%d\n", seq)
 	if ended {
 		b.WriteString("#EXT-X-PLAYLIST-TYPE:VOD\n") // VOD means "video on demand".
@@ -136,7 +138,7 @@ func playlist(segs []segment, seq int, ended bool) string {
 	return b.String()
 }
 
-// targetDuration is the longest segment's length, rounded up to whole
+// targetDuration returns the longest segment's length, rounded up to whole
 // seconds, which every playlist must give. It's never under segmentSeconds.
 func targetDuration(segs []segment) int {
 	target := segmentSeconds

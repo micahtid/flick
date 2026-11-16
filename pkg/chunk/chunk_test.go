@@ -1,8 +1,8 @@
 package chunk
 
-// Tests for the Client in chunk.go. Pretend nodes keep chunks and the chunk
-// map in memory, so `go test` needs no Docker. Store in files.go only adds
-// Postgres queries, so it isn't tested here.
+// This file tests the Client in chunk.go. Pretend nodes keep chunks and the
+// chunk map in memory, so `go test` needs no Docker. Store in files.go only
+// adds Postgres queries, so it isn't tested here.
 
 import (
 	"bytes"
@@ -28,7 +28,7 @@ type fakeMap struct {
 
 // fakeNode is a pretend storage node. Set down to make it fail every request.
 type fakeNode struct {
-	mu     sync.Mutex // Put sends to all nodes at once, so guard the map.
+	mu     sync.Mutex // Requests can arrive at the same time, so this guards chunks.
 	chunks map[string][]byte
 	down   bool
 	shared *fakeMap

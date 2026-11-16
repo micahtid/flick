@@ -4,11 +4,12 @@ import { formatDate, formatWatchTime } from '../format'
 import { watchUrl } from '../router'
 import { Link } from './Link'
 
-// How often to load the numbers again. The API adds new views to them once a
-// minute, so this keeps them less than a minute old.
+// The numbers load again this often. The API adds new views to them once a
+// minute, so each update shows up here within 30 seconds.
 const RELOAD_INTERVAL_MS = 30_000
 
-// The creator dashboard: every video's views and watch time, newest first.
+// Shows the creator dashboard: every video's views and watch time, newest
+// first.
 export function Dashboard() {
   const [stats, setStats] = useState<VideoStats[] | null>(null)
   const [error, setError] = useState<string | null>(null)

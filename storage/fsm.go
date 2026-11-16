@@ -1,7 +1,8 @@
 package main
 
 // This file holds the chunk map: a record of which nodes hold each chunk.
-// Every node keeps its own copy, and Raft makes sure all the copies match.
+// Every node keeps its own copy. Raft, a way for several machines to agree on
+// the same data, makes sure all the copies match.
 
 import (
 	"encoding/json"
@@ -28,8 +29,8 @@ type change struct {
 	Nodes   []string `json:"nodes"` // These are node addresses, such as http://node1:9001.
 }
 
-// fsm is the chunk map. Raft calls it a finite state machine, which just
-// means "the thing that Raft's changes are applied to".
+// fsm is the chunk map. Raft calls it a finite state machine (FSM), which
+// means the thing that Raft's changes are applied to.
 type fsm struct {
 	mu   sync.RWMutex        // Raft applies changes while handlers read the map.
 	locs map[string][]string // This maps each chunk ID to the nodes that hold it.
@@ -39,8 +40,9 @@ func newFSM() *fsm {
 	return &fsm{locs: map[string][]string{}}
 }
 
-// Apply makes one committed change to the map. Raft calls it on every node, in
-// the same order, so every copy of the map ends up the same.
+// Apply makes one committed change to the map. A change is committed once
+// most of the nodes have saved it. Raft calls Apply on every node, in the same
+// order, so every copy of the map ends up the same.
 func (f *fsm) Apply(l *raft.Log) any {
 	var c change
 	if err := json.Unmarshal(l.Data, &c); err != nil {
@@ -79,15 +81,17 @@ func (f *fsm) All() map[string][]string {
 	return all
 }
 
-// Snapshot saves the whole map. Raft calls it now and then, so it can throw
-// away the log entries the snapshot already covers.
+// Snapshot saves the whole map. Raft keeps a log, a list of every change.
+// Now and then it calls Snapshot, so it can throw away the log entries the
+// snapshot already covers.
 func (f *fsm) Snapshot() (raft.FSMSnapshot, error) {
 	return snapshot(f.All()), nil
 }
 
 // Restore replaces the map with one saved by Snapshot. Raft calls it when a
-// node starts, or when a node is so far behind that the leader sends it a
-// snapshot instead of the log entries it missed.
+// node starts with a saved snapshot, or when a node is so far behind that the
+// leader (the node that makes every change) sends it a snapshot instead of the
+// log entries it missed.
 func (f *fsm) Restore(r io.ReadCloser) error {
 	defer r.Close()
 	locs := map[string][]string{}
@@ -103,7 +107,7 @@ func (f *fsm) Restore(r io.ReadCloser) error {
 // snapshot is a copy of the map, taken by Snapshot.
 type snapshot map[string][]string
 
-// Persist writes the map to Raft's snapshot file as JSON.
+// Persist saves the map to Raft's snapshot file as JSON.
 func (s snapshot) Persist(sink raft.SnapshotSink) error {
 	if err := json.NewEncoder(sink).Encode(s); err != nil {
 		sink.Cancel()
@@ -130,12 +134,5 @@ func union(a, b []string) []string {
 func minus(a, b []string) []string {
 	return slices.DeleteFunc(slices.Clone(a), func(n string) bool {
 		return slices.Contains(b, n)
-	})
-}
-
-// intersect returns the nodes in a that are also in b.
-func intersect(a, b []string) []string {
-	return slices.DeleteFunc(slices.Clone(a), func(n string) bool {
-		return !slices.Contains(b, n)
 	})
 }

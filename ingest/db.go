@@ -1,8 +1,8 @@
 package main
 
-// Everything that talks to Postgres: connecting, and adding, finishing and
-// removing streams. The API creates the videos table, so the ingest service
-// only changes its rows.
+// This file talks to Postgres: it connects, and adds, finishes and removes
+// streams. The API creates the videos table, so the ingest service only
+// changes its rows.
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// At startup, try to reach Postgres up to 10 times, 1 second apart.
+// These make startup try to reach Postgres up to 10 times, 1 second apart.
 const (
 	connectAttempts = 10
 	connectDelay    = time.Second
@@ -38,8 +38,8 @@ func connectDB(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	return db, nil
 }
 
-// pingWithRetry checks that Postgres answers, retrying until it does or the
-// attempts run out.
+// pingWithRetry checks that Postgres answers, and tries again until it does
+// or the tries run out.
 func pingWithRetry(ctx context.Context, db *pgxpool.Pool) error {
 	var err error
 	for attempt := 1; attempt <= connectAttempts; attempt++ {

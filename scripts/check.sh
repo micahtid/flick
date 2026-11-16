@@ -1,7 +1,7 @@
 #!/bin/sh
-# Checks that every chunk in the files table is saved on all 3 storage nodes.
-# Run it from the project folder, with every node running. The repair loop
-# needs a few seconds to fill in a node that has just come back.
+# This script checks that every chunk in the files table is saved on all 3
+# storage nodes. Run it from the project folder, with every node running. The
+# repair loop needs a few seconds to fill in a node that has just come back.
 
 total=0
 short=0

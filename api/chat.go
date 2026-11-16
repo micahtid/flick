@@ -1,10 +1,10 @@
 package main
 
 // This file runs live chat. Each viewer keeps a WebSocket open to
-// /chat/<id>. A WebSocket stays open, so either side can send a message at
-// any time. Redis passes each message to every copy of the API, and each copy
-// sends it on to its own viewers. Messages aren't saved, so a viewer only
-// sees ones sent after they joined.
+// /chat/<id>. A WebSocket is a connection that stays open, so either side can
+// send a message at any time. Redis passes each message to every copy of the
+// API, and each copy sends it on to its own viewers. Messages aren't saved, so
+// a viewer only sees ones sent after they joined.
 
 import (
 	"context"
@@ -128,8 +128,8 @@ func writeMessage(ctx context.Context, conn *websocket.Conn, msg []byte) error {
 
 // cleanMessage reads a message from a viewer and trims spaces from both ends
 // of its name and text. It returns the message as JSON again, or false if
-// it's not JSON, or its name or text is empty or too long. Writing it out
-// again drops anything else the viewer sent.
+// it isn't JSON or its name or text is empty or too long. Writing it out again
+// drops anything else the viewer sent.
 func cleanMessage(data []byte) ([]byte, bool) {
 	var m chatMessage
 	if err := json.Unmarshal(data, &m); err != nil {
@@ -173,8 +173,8 @@ func (h *redisHub) Subscribe(ctx context.Context, channel string) (<-chan []byte
 		return nil, nil, err
 	}
 
-	// Pass each message on until stop is called. done lets stop end the
-	// goroutine even while it waits to hand over a message.
+	// Pass each message on in the background until stop is called. done lets
+	// stop end this even while it waits to hand over a message.
 	msgs := make(chan []byte)
 	done := make(chan struct{})
 	go func() {

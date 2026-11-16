@@ -1,7 +1,7 @@
 package chunk
 
-// Store saves and reads whole files. Each file is built from chunks, and the
-// files table in Postgres remembers which chunks make it up, in order.
+// This file saves and reads whole files. Each file is built from chunks, and
+// the files table in Postgres lists its chunks in order.
 
 import (
 	"context"
@@ -34,8 +34,8 @@ func NewStore(db *pgxpool.Pool, chunks *Client) *Store {
 	return &Store{db: db, chunks: chunks}
 }
 
-// Save stores r as the file at path. Saving a path again replaces the file,
-// so a retried job can simply save its files again.
+// Save saves r as the file at path. Saving a path again replaces the file, so
+// a retried job can save its files again.
 func (s *Store) Save(ctx context.Context, path string, r io.Reader) error {
 	ids, err := s.chunks.Put(ctx, r)
 	if err != nil {

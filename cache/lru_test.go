@@ -1,6 +1,6 @@
 package main
 
-// Tests for the LRU in lru.go.
+// This file tests the LRU cache in lru.go.
 
 import (
 	"strings"

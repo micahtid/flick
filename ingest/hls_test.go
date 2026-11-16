@@ -1,7 +1,7 @@
 package main
 
-// Tests for hls.go. Most need no FFmpeg. TestRecord runs the real FFmpeg and
-// is skipped if it isn't installed.
+// This file tests hls.go. Most tests need no FFmpeg. TestRecord runs the real
+// FFmpeg, and is skipped if it isn't installed.
 
 import (
 	"context"

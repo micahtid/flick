@@ -9,7 +9,7 @@ type LinkProps = {
 }
 
 export function Link({ href, children, ...rest }: LinkProps) {
-  // Switches page without reloading the site.
+  // Switches page without reloading the website.
   function handleClick(event: MouseEvent<HTMLAnchorElement>) {
     // Leave Ctrl/Cmd/Shift/Alt clicks and non-left clicks (button 0 is the
     // left button) to the browser, so "open in new tab" still works.

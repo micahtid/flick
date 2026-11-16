@@ -1,7 +1,7 @@
 package main
 
-// The HTTP side of the API: the list of routes, one handler per endpoint, and
-// helpers for reading uploads and sending replies.
+// This file is the HTTP side of the API: the list of routes, one handler per
+// endpoint, and helpers for reading uploads and sending replies.
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/micahtid/flick/pkg/metrics"
@@ -21,7 +22,7 @@ import (
 // These limit the size of an upload.
 const (
 	maxUploadBytes = 2 << 30 // This is 2 GiB (2 × 2³⁰ bytes), the same limit as nginx.conf.
-	maxTitleBytes  = 200
+	maxTitleChars  = 200     // This is the same limit as the website's upload form.
 )
 
 // videoRepo lists the database actions the handlers need. videoStore in db.go
@@ -49,8 +50,8 @@ type fileStore interface {
 	Delete(ctx context.Context, path string) error
 }
 
-// server holds what every handler needs: the database, the job queue, the
-// file store, the chat hub, and the view counter.
+// server holds what every handler needs: the database, the queue, the file
+// store, the chat hub and the view counter.
 type server struct {
 	videos videoRepo
 	jobs   jobQueue
@@ -107,8 +108,8 @@ func (s *server) createVideo(w http.ResponseWriter, r *http.Request) {
 	var gotFile bool
 
 	// If anything fails after the file is saved, delete the file and the row,
-	// so failed uploads leave nothing behind. defer runs this when the function
-	// returns.
+	// so a failed upload leaves nothing behind. defer runs this when the
+	// function returns.
 	var rowAdded, committed bool
 	defer func() {
 		if committed {
@@ -168,9 +169,9 @@ func (s *server) createVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Add the database row, then a job to convert the file. Only once both
-	// work is the upload kept. The row comes first so it already exists when a
-	// worker finishes the job and marks it ready.
+	// Add the database row, then a job to convert the file. The upload is kept
+	// only if both work. The row comes first so it already exists when a worker
+	// finishes the job and marks it ready.
 	video, err := s.videos.Create(r.Context(), id, title)
 	if err != nil {
 		internalError(w, "save video", err)
@@ -228,14 +229,15 @@ func (e badRequest) Error() string { return e.msg }
 
 // readTitle reads the title and trims spaces from both ends.
 func readTitle(part *multipart.Part) (string, error) {
-	// Read at most one byte over the limit. That's enough to tell the title is
-	// too long without reading however much the client sends.
-	raw, err := io.ReadAll(io.LimitReader(part, maxTitleBytes+1))
+	// A character takes up to 4 bytes, so read at most one byte over that.
+	// That's enough to tell the title is too long without reading however much
+	// the client sends.
+	raw, err := io.ReadAll(io.LimitReader(part, 4*maxTitleChars+1))
 	if err != nil {
 		return "", err
 	}
-	if len(raw) > maxTitleBytes {
-		return "", badRequest{fmt.Sprintf("title must be at most %d bytes", maxTitleBytes)}
+	if len(raw) > 4*maxTitleChars || utf8.RuneCount(raw) > maxTitleChars {
+		return "", badRequest{fmt.Sprintf("title must be at most %d characters", maxTitleChars)}
 	}
 	return strings.TrimSpace(string(raw)), nil
 }

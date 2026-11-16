@@ -1,6 +1,6 @@
 package main
 
-// Tests for the stream loop in stream.go. They use fakes in place of FFmpeg,
+// This file tests the stream loop in stream.go. Fakes stand in for FFmpeg,
 // Postgres and the storage nodes, so `go test` needs none of them.
 
 import (
@@ -17,10 +17,12 @@ import (
 	"github.com/google/uuid"
 )
 
-// fakeVideos keeps each video's status and length by ID.
+// fakeVideos stands in for Postgres. It keeps each video's status and length
+// by ID. Set createErr to make CreateLive fail.
 type fakeVideos struct {
-	status   map[uuid.UUID]string
-	duration map[uuid.UUID]float64
+	status    map[uuid.UUID]string
+	duration  map[uuid.UUID]float64
+	createErr error
 }
 
 func newFakeVideos() *fakeVideos {
@@ -28,6 +30,9 @@ func newFakeVideos() *fakeVideos {
 }
 
 func (f *fakeVideos) CreateLive(_ context.Context, id uuid.UUID, _ string) error {
+	if f.createErr != nil {
+		return f.createErr
+	}
 	f.status[id] = "live"
 	return nil
 }
@@ -118,6 +123,38 @@ func TestSync(t *testing.T) {
 	want = []string{s.path("seg_00001.ts"), s.path("seg_00002.ts"), s.path(liveName)}
 	if !slices.Equal(files.saved, want) {
 		t.Errorf("saved %v, want %v", files.saved, want)
+	}
+}
+
+// If adding the video fails, the next sync tries again, even when no new
+// segment has come in. A sync with nothing left to do saves nothing.
+func TestSyncRetriesFailedStart(t *testing.T) {
+	in, videos, files := newTestIngester()
+	s := &stream{id: uuid.New(), dir: t.TempDir()}
+	ctx := context.Background()
+	writeSegments(t, s.dir, 1)
+
+	videos.createErr = errors.New("db down")
+	if err := in.sync(ctx, s); err == nil {
+		t.Fatal("sync worked, want an error")
+	}
+
+	videos.createErr = nil
+	files.saved = nil
+	if err := in.sync(ctx, s); err != nil {
+		t.Fatal(err)
+	}
+	if videos.status[s.id] != "live" {
+		t.Errorf("status = %q, want live", videos.status[s.id])
+	}
+	want := []string{s.path(posterName), s.path(liveName)}
+	if !slices.Equal(files.saved, want) {
+		t.Errorf("saved %v, want %v", files.saved, want)
+	}
+
+	files.saved = nil
+	if err := in.sync(ctx, s); err != nil || len(files.saved) != 0 {
+		t.Errorf("sync with nothing new: err = %v, saved = %v, want nothing", err, files.saved)
 	}
 }
 

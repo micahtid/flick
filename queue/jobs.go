@@ -1,7 +1,7 @@
 package main
 
-// The queue's rules: the list of routes, one handler per endpoint, the loop
-// that hands out stuck jobs again, and helpers for sending replies.
+// This file holds the queue's routes, a handler for each endpoint, the loop
+// that puts stuck jobs back in line, and helpers for sending replies.
 
 import (
 	"context"
@@ -20,8 +20,8 @@ const (
 	// maxWaiting is how many jobs may wait at once. Past this, new jobs are
 	// turned away so the line can't grow forever.
 	maxWaiting = 100
-	// claimTimeout is how long a worker may hold a job. After that, the job is
-	// handed out again in case the worker crashed.
+	// claimTimeout is how long a worker may hold a job without renewing it.
+	// After that, the job is handed out again in case the worker crashed.
 	claimTimeout = 5 * time.Minute
 	// requeueEvery is how often the queue looks for jobs held too long.
 	requeueEvery = 30 * time.Second
@@ -34,6 +34,7 @@ type jobRepo interface {
 	Waiting(ctx context.Context) (int, error)
 	Claim(ctx context.Context) (job Job, ok bool, err error)
 	Done(ctx context.Context, id uuid.UUID) (ok bool, err error)
+	Renew(ctx context.Context, id uuid.UUID) (ok bool, err error)
 	Requeue(ctx context.Context, timeout time.Duration) (int64, error)
 }
 
@@ -55,6 +56,7 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("POST /jobs", s.addJob)
 	mux.HandleFunc("POST /jobs/claim", s.claimJob)
 	mux.HandleFunc("POST /jobs/{id}/done", s.finishJob)
+	mux.HandleFunc("POST /jobs/{id}/renew", s.renewJob)
 	mux.Handle("GET /metrics", metrics.Handler())
 	return metrics.Wrap(mux)
 }
@@ -117,21 +119,34 @@ func (s *server) claimJob(w http.ResponseWriter, r *http.Request) {
 // finishJob marks a job done, so it's never handed out again. It replies 404
 // if no job has that ID.
 func (s *server) finishJob(w http.ResponseWriter, r *http.Request) {
+	s.changeJob(w, r, "finish job", s.jobs.Done)
+}
+
+// renewJob tells the queue that a worker is still busy with a job, so it
+// isn't handed out again. It replies 404 if no running job has that ID.
+func (s *server) renewJob(w http.ResponseWriter, r *http.Request) {
+	s.changeJob(w, r, "renew job", s.jobs.Renew)
+}
+
+// changeJob runs change on the job named in the path, and replies 204. It
+// replies 404 if change found no such job. action names the step in the log
+// if it fails.
+func (s *server) changeJob(w http.ResponseWriter, r *http.Request, action string, change func(context.Context, uuid.UUID) (bool, error)) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "invalid job id", http.StatusBadRequest)
 		return
 	}
-	ok, err := s.jobs.Done(r.Context(), id)
+	ok, err := change(r.Context(), id)
 	if err != nil {
-		internalError(w, "finish job", err)
+		internalError(w, action, err)
 		return
 	}
 	if !ok {
 		http.Error(w, "job not found", http.StatusNotFound)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	w.WriteHeader(http.StatusNoContent) // 204 means changed, with nothing to send back.
 }
 
 // waitingJobs counts the jobs waiting for a worker. Prometheus reads it as

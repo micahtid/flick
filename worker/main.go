@@ -1,8 +1,9 @@
 // Package main is the Flick conversion worker. It claims jobs from the queue
-// one at a time and converts each video to HLS with FFmpeg: 1080p, 720p and
-// 360p versions cut into 4-second segments, for adaptive streaming. Uploads
-// are read from the storage nodes, and the HLS files are saved back to them.
-// Run several copies to convert several videos at once.
+// one at a time and converts each video to HLS with FFmpeg: up to 3 qualities
+// (1080p, 720p and 360p), cut into 4-second segments, so the player can switch
+// quality to suit the connection. Uploads are read from the storage nodes, and
+// the HLS files are saved back to them. Run several copies to convert several
+// videos at once.
 package main
 
 import (
@@ -25,16 +26,16 @@ func main() {
 	}
 }
 
-// run starts the worker and keeps it working until it is told to stop. It
-// returns errors instead of exiting so cleanup (like closing the database)
+// run starts the worker and keeps it running until it's told to stop. It
+// returns errors instead of exiting, so cleanup such as closing the database
 // always happens.
 func run() error {
-	// ctx is cancelled when the program is told to stop: Ctrl+C, or SIGTERM,
-	// which is what `docker compose down` and `docker stop` send.
+	// ctx is cancelled when the program is told to stop, by Ctrl+C or by
+	// SIGTERM. Docker sends SIGTERM when it stops a container.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Read the settings from environment variables, which docker-compose.yml sets.
+	// Read the settings from environment variables set in docker-compose.yml.
 	queueURL := getenv("QUEUE_URL", "http://queue:8081")
 	storageNodes := getenv("STORAGE_NODES", "http://node1:9001,http://node2:9002,http://node3:9003")
 	metricsPort := getenv("METRICS_PORT", "8090")

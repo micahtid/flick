@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, type SubmitEvent } from 'react'
 import { chatUrl, type ChatMessage } from '../api'
 
-// The longest message allowed, the same limit as the API.
+// A message can be at most this long, the same limit as the API.
 const MAX_MESSAGE_LENGTH = 500
 // Only the newest messages are kept, so a long stream doesn't fill memory.
 const MAX_MESSAGES = 200
-// How long to wait before joining again after the connection drops.
+// The chat joins again this long after the connection drops.
 const RECONNECT_DELAY_MS = 3000
 
 // Each visit gets a guest name, such as "Guest 4821", to chat as.
@@ -15,12 +15,12 @@ type Props = {
   id: string
 }
 
-// A message on screen. key tells React which message is which, since older
-// ones drop off the top.
+// A Line is a message on screen. key tells React which message is which, since
+// older ones drop off the top.
 type Line = ChatMessage & { key: number }
 
-// Live chat beside a stream. It keeps a WebSocket open to the API, shows each
-// message as it arrives, and sends what the viewer types. Messages aren't
+// Shows live chat beside a stream. It keeps a WebSocket open to the API, shows
+// each message as it arrives, and sends what the viewer types. Messages aren't
 // saved, so a viewer only sees ones sent after they joined.
 export function Chat({ id }: Props) {
   const socketRef = useRef<WebSocket | null>(null)
