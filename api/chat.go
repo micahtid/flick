@@ -16,7 +16,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/coder/websocket"
-	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -27,6 +28,13 @@ const (
 	maxMessageChars = 500
 	maxMessageBytes = 4 << 10 // This is 4 KiB, enough for the longest name and text written as JSON.
 )
+
+// chatConnections is how many viewers are connected to chat right now.
+// Prometheus reads it from /metrics.
+var chatConnections = promauto.NewGauge(prometheus.GaugeOpts{
+	Name: "chat_connections",
+	Help: "Viewers connected to chat right now.",
+})
 
 // writeTimeout is how long a viewer gets to take each message. A viewer who
 // falls further behind is dropped, so they can't hold up the others.
@@ -52,9 +60,8 @@ type chatMessage struct {
 // to the viewer, and messages from the viewer go into Redis, until the viewer
 // leaves.
 func (s *server) joinChat(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.Parse(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "bad stream ID", http.StatusBadRequest)
+	id, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 	channel := "chat:" + id.String() // Each stream has its own channel.
@@ -78,6 +85,8 @@ func (s *server) joinChat(w http.ResponseWriter, r *http.Request) {
 	// A message over the limit closes the connection. The website never sends
 	// one that big.
 	conn.SetReadLimit(maxMessageBytes)
+	chatConnections.Inc()
+	defer chatConnections.Dec()
 
 	// ctx is cancelled when either direction stops, which stops the other.
 	ctx, cancel := context.WithCancel(r.Context())

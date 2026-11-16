@@ -1,7 +1,8 @@
 // Package main is the Flick API. It saves uploaded videos on the storage
 // nodes, records them in Postgres, asks the queue to convert them, and lists
 // them. It also runs live chat, passing each message to every viewer through
-// Redis. Nginx forwards every /api request here with the /api part removed.
+// Redis, and counts views and watch time for the creator dashboard. Nginx
+// forwards every /api request here with the /api part removed.
 // The cache also fetches the HLS files from here.
 package main
 
@@ -51,8 +52,9 @@ func run() error {
 	}
 	defer db.Close()
 
-	// Creating the Redis client doesn't connect yet. It connects when chat
-	// first uses it, so the rest of the API works even while Redis is down.
+	// Creating the Redis client doesn't connect yet. It connects when chat or
+	// the view counter first uses it, so the rest of the API works even while
+	// Redis is down.
 	rdb := redis.NewClient(redisOpts)
 	defer rdb.Close()
 
@@ -60,9 +62,12 @@ func run() error {
 	// an upload open forever.
 	jobs := &queueClient{url: queueURL, http: &http.Client{Timeout: 10 * time.Second}}
 
+	s := newServer(&videoStore{db: db}, jobs, chunk.NewStore(db, chunk.New(storageNodes)), &redisHub{rdb: rdb}, &redisCounter{rdb: rdb})
+	go s.flushLoop(ctx) // This runs in the background and stops when ctx is cancelled.
+
 	srv := &http.Server{
 		Addr:    ":" + port, // ":8080" means port 8080 on every network interface.
-		Handler: newServer(&videoStore{db: db}, jobs, chunk.NewStore(db, chunk.New(storageNodes)), &redisHub{rdb: rdb}).routes(),
+		Handler: s.routes(),
 		// Drop clients that take over 10 seconds to send request headers. There
 		// is no limit on the whole request, since uploads can take minutes.
 		ReadHeaderTimeout: 10 * time.Second,

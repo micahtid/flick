@@ -21,10 +21,13 @@ import (
 	"github.com/micahtid/flick/pkg/chunk"
 )
 
-// fakeRepo stands in for the database. Set createErr to make Create fail.
+// fakeRepo stands in for the database. Set createErr to make Create fail,
+// and countErr to make AddCounts fail. counts records every count added.
 type fakeRepo struct {
 	videos    []Video
+	counts    []viewCount
 	createErr error
+	countErr  error
 }
 
 // Create puts the new video first, matching the real newest-first order.
@@ -46,6 +49,23 @@ func (f *fakeRepo) Delete(_ context.Context, id uuid.UUID) error {
 // List returns a copy, so tests can't change the fake's data by accident.
 func (f *fakeRepo) List(context.Context) ([]Video, error) {
 	return append([]Video{}, f.videos...), nil
+}
+
+// Stats returns each video with no views yet.
+func (f *fakeRepo) Stats(context.Context) ([]VideoStats, error) {
+	stats := []VideoStats{}
+	for _, v := range f.videos {
+		stats = append(stats, VideoStats{ID: v.ID, Title: v.Title, CreatedAt: v.CreatedAt})
+	}
+	return stats, nil
+}
+
+func (f *fakeRepo) AddCounts(_ context.Context, counts []viewCount) error {
+	if f.countErr != nil {
+		return f.countErr
+	}
+	f.counts = append(f.counts, counts...)
+	return nil
 }
 
 // fakeQueue stands in for the job queue and records each video it's asked to
@@ -122,12 +142,12 @@ func multipartBody(t *testing.T, parts ...formPart) (*bytes.Buffer, string) {
 }
 
 // newTestServer makes a server with an empty fake database, queue, file
-// store and chat hub.
+// store, chat hub and view counter.
 func newTestServer() (fakeFiles, *fakeRepo, *fakeQueue, http.Handler) {
 	repo := &fakeRepo{}
 	jobs := &fakeQueue{}
 	files := fakeFiles{}
-	return files, repo, jobs, newServer(repo, jobs, files, newFakeHub()).routes()
+	return files, repo, jobs, newServer(repo, jobs, files, newFakeHub(), newFakeCounter()).routes()
 }
 
 // upload sends POST /videos straight to the handler, with no real network.

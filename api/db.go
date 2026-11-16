@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/micahtid/flick/pkg/chunk"
 )
@@ -19,22 +20,30 @@ import (
 // status is "processing" until a worker has converted the file, then "ready".
 // The worker also fills in duration, the length in seconds. The ingest
 // service adds a live stream with the status "live", and sets it to "ready"
-// with its length once the stream ends.
+// with its length once the stream ends. views and watch_seconds are the
+// video's views and total watch time, which flushLoop in views.go adds to
+// once a minute.
 //
-// The ALTER adds duration to a table made before Phase 3. Videos converted
-// before then have no duration, so it stays empty (NULL) for them.
+// The first ALTER adds duration to a table made before Phase 3. Videos
+// converted before then have no duration, so it stays empty (NULL) for them.
+// The other two add views and watch_seconds to a table made before Phase 8,
+// starting at 0.
 //
 // chunk.Schema creates the files table, which lists the chunks of every file
 // on the storage nodes.
 var schema = []string{
 	`CREATE TABLE IF NOT EXISTS videos (
-  id         UUID PRIMARY KEY,
-  title      TEXT NOT NULL,
-  status     TEXT NOT NULL DEFAULT 'processing',
-  duration   DOUBLE PRECISION,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  id            UUID PRIMARY KEY,
+  title         TEXT NOT NULL,
+  status        TEXT NOT NULL DEFAULT 'processing',
+  duration      DOUBLE PRECISION,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  views         BIGINT NOT NULL DEFAULT 0,
+  watch_seconds BIGINT NOT NULL DEFAULT 0
 )`,
 	`ALTER TABLE videos ADD COLUMN IF NOT EXISTS duration DOUBLE PRECISION`,
+	`ALTER TABLE videos ADD COLUMN IF NOT EXISTS views BIGINT NOT NULL DEFAULT 0`,
+	`ALTER TABLE videos ADD COLUMN IF NOT EXISTS watch_seconds BIGINT NOT NULL DEFAULT 0`,
 	chunk.Schema,
 }
 
@@ -150,4 +159,50 @@ func (s *videoStore) List(ctx context.Context) ([]Video, error) {
 		videos = append(videos, v)
 	}
 	return videos, rows.Err() // rows.Err reports any error that stopped the loop early.
+}
+
+// VideoStats is one video's numbers for the creator dashboard. WatchSeconds
+// is the total time everyone has spent watching it.
+type VideoStats struct {
+	ID           uuid.UUID `json:"id"`
+	Title        string    `json:"title"`
+	Views        int64     `json:"views"`
+	WatchSeconds int64     `json:"watch_seconds"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+// Stats returns every video's views and watch time, newest first.
+func (s *videoStore) Stats(ctx context.Context) ([]VideoStats, error) {
+	rows, err := s.db.Query(ctx,
+		`SELECT id, title, views, watch_seconds, created_at FROM videos ORDER BY created_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	stats := []VideoStats{}
+	for rows.Next() {
+		var v VideoStats
+		if err := rows.Scan(&v.ID, &v.Title, &v.Views, &v.WatchSeconds, &v.CreatedAt); err != nil {
+			return nil, err
+		}
+		stats = append(stats, v)
+	}
+	return stats, rows.Err()
+}
+
+// AddCounts adds each video's new views and watch time to its row. It runs
+// in one transaction, so either every count is added or none is.
+func (s *videoStore) AddCounts(ctx context.Context, counts []viewCount) error {
+	return pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		for _, c := range counts {
+			_, err := tx.Exec(ctx,
+				`UPDATE videos SET views = views + $2, watch_seconds = watch_seconds + $3 WHERE id = $1`,
+				c.ID, c.Views, c.Seconds)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }

@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/micahtid/flick/pkg/metrics"
 )
 
 // These limit the size of an upload.
@@ -29,6 +30,8 @@ type videoRepo interface {
 	Create(ctx context.Context, id uuid.UUID, title string) (Video, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	List(ctx context.Context) ([]Video, error)
+	Stats(ctx context.Context) ([]VideoStats, error)
+	AddCounts(ctx context.Context, counts []viewCount) error
 }
 
 // jobQueue lists the queue actions the handlers need. queueClient in queue.go
@@ -47,20 +50,22 @@ type fileStore interface {
 }
 
 // server holds what every handler needs: the database, the job queue, the
-// file store, and the chat hub.
+// file store, the chat hub, and the view counter.
 type server struct {
 	videos videoRepo
 	jobs   jobQueue
 	files  fileStore
 	chat   chatHub
+	views  viewCounter
 }
 
-func newServer(videos videoRepo, jobs jobQueue, files fileStore, chat chatHub) *server {
-	return &server{videos: videos, jobs: jobs, files: files, chat: chat}
+func newServer(videos videoRepo, jobs jobQueue, files fileStore, chat chatHub, views viewCounter) *server {
+	return &server{videos: videos, jobs: jobs, files: files, chat: chat, views: views}
 }
 
 // routes connects each request type and path to its handler. {path...}
-// matches the rest of the path, slashes included.
+// matches the rest of the path, slashes included. metrics.Wrap counts and
+// times every request, and Prometheus reads the numbers from /metrics.
 func (s *server) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.health)
@@ -68,7 +73,11 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("GET /videos", s.listVideos)
 	mux.HandleFunc("GET /files/hls/{path...}", s.getHLSFile)
 	mux.HandleFunc("GET /chat/{id}", s.joinChat)
-	return mux
+	mux.HandleFunc("POST /videos/{id}/view", s.addView)
+	mux.HandleFunc("POST /videos/{id}/watch", s.addWatch)
+	mux.HandleFunc("GET /stats", s.getStats)
+	mux.Handle("GET /metrics", metrics.Handler())
+	return metrics.Wrap(mux)
 }
 
 // health replies "ok". It's a quick way to check the API is running.
@@ -198,6 +207,17 @@ func (s *server) listVideos(w http.ResponseWriter, r *http.Request) {
 // uploads/<id>.mp4. The worker reads it by the same name.
 func uploadPath(id uuid.UUID) string {
 	return "uploads/" + id.String() + ".mp4"
+}
+
+// pathID reads the video ID from the path. If it isn't a UUID, it replies 400
+// and returns false.
+func pathID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "bad video ID", http.StatusBadRequest)
+		return uuid.Nil, false
+	}
+	return id, true
 }
 
 // badRequest is an error caused by bad input from the client. uploadError
