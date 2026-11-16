@@ -1,10 +1,13 @@
 import Hls from 'hls.js/light'
 import { useEffect, useRef } from 'react'
-import { livePlaylistUrl, playlistUrl, posterUrl } from '../api'
+import { livePlaylistUrl, playlistUrl, posterUrl, reportView, reportWatch } from '../api'
 
 // How many seconds behind the newest segment a stream plays. Staying a few
 // segments back leaves room to buffer, so playback doesn't stall.
 const LIVE_SYNC_SECONDS = 6
+
+// How many seconds of playback to add up before reporting them.
+const WATCH_REPORT_SECONDS = 30
 
 type Props = {
   id: string
@@ -20,6 +23,9 @@ type Props = {
 //
 // A stream plays from its live playlist instead, which hls.js loads again
 // every few seconds to find new segments.
+//
+// The player also reports a view when playback starts, and every 30 seconds
+// of watching, for the creator dashboard.
 export function Player({ id, live }: Props) {
   const ref = useRef<HTMLVideoElement>(null)
 
@@ -48,6 +54,42 @@ export function Player({ id, live }: Props) {
     hls.attachMedia(video)
     return () => hls.destroy() // Stop downloading when the player goes away.
   }, [id, live])
+
+  // Counts a view the first time the video plays, and adds a second of watch
+  // time every second it's playing. Each 30 seconds is reported, and whatever
+  // is left is reported when the player goes away or the tab is closed.
+  useEffect(() => {
+    const video = ref.current
+    if (!video) return
+    let viewed = false
+    let watched = 0
+
+    function handlePlaying() {
+      if (viewed) return
+      viewed = true
+      reportView(id)
+    }
+    function reportWatched() {
+      if (watched === 0) return
+      reportWatch(id, watched)
+      watched = 0
+    }
+    const timer = setInterval(() => {
+      if (video.paused || video.ended) return
+      watched++
+      if (watched >= WATCH_REPORT_SECONDS) reportWatched()
+    }, 1000)
+
+    video.addEventListener('playing', handlePlaying)
+    // The browser fires "pagehide" when the tab is closed or reloaded.
+    window.addEventListener('pagehide', reportWatched)
+    return () => {
+      video.removeEventListener('playing', handlePlaying)
+      window.removeEventListener('pagehide', reportWatched)
+      clearInterval(timer)
+      reportWatched()
+    }
+  }, [id])
 
   return (
     <video ref={ref} className="player" poster={posterUrl(id)} controls autoPlay playsInline />

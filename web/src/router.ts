@@ -1,7 +1,7 @@
-// A small router for the two pages: home ("/") and watch ("/watch?v=<id>").
-// The page is read from the address bar, so links can be shared and the back
-// button works. Nginx and Vite send index.html for any path, so opening a
-// /watch link directly also works.
+// A small router for the three pages: home ("/"), watch ("/watch?v=<id>")
+// and the creator dashboard ("/dashboard"). The page is read from the address
+// bar, so links can be shared and the back button works. Nginx and Vite send
+// index.html for any path, so opening a /watch link directly also works.
 
 import { useSyncExternalStore } from 'react'
 
@@ -28,12 +28,20 @@ function currentWatchId(): string | null {
     : null
 }
 
-// A React hook that returns the ID of the video being watched, or null on the
-// home page. useSyncExternalStore re-renders the component whenever
+// A React hook that returns the ID of the video being watched, or null on any
+// other page. useSyncExternalStore re-renders the component whenever
 // subscribe reports a change.
 export function useWatchId(): string | null {
   return useSyncExternalStore(subscribe, currentWatchId)
 }
+
+// A React hook that returns the page's path, such as "/" or "/dashboard".
+export function usePathname(): string {
+  return useSyncExternalStore(subscribe, () => window.location.pathname)
+}
+
+// The address of the creator dashboard.
+export const dashboardUrl = '/dashboard'
 
 // The address of a video's watch page. encodeURIComponent escapes characters
 // that would break the address.
@@ -44,6 +52,6 @@ export function watchUrl(id: string): string {
 // Changes page without reloading the site.
 export function navigate(url: string) {
   window.history.pushState(null, '', url) // This updates the address bar and the back-button history.
-  window.dispatchEvent(new Event(NAVIGATE_EVENT)) // This tells useWatchId to read the address again.
+  window.dispatchEvent(new Event(NAVIGATE_EVENT)) // This tells the hooks above to read the address again.
   window.scrollTo(0, 0) // This starts at the top, like a normal page load.
 }

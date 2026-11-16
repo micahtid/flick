@@ -60,6 +60,14 @@ export function formatDuration(totalSeconds: number): string {
     : `${minutes}:${seconds}`
 }
 
+// Turns watch time in seconds into hours and minutes, such as "3 Hr 12 Min",
+// or "12 Min" for under an hour.
+export function formatWatchTime(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  return hours > 0 ? `${hours} Hr ${minutes} Min` : `${minutes} Min`
+}
+
 // Turns a date into short text such as "Nov 10, 2026".
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {

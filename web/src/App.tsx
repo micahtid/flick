@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react'
 import { errorMessage, listVideos, type Video } from './api'
+import { Dashboard } from './components/Dashboard'
 import { Link } from './components/Link'
 import { UploadForm } from './components/UploadForm'
 import { VideoGrid, VideoGridSkeleton } from './components/VideoGrid'
 import { WatchPage } from './components/WatchPage'
-import { useWatchId } from './router'
+import { dashboardUrl, usePathname, useWatchId } from './router'
 
 // How often to load the list again while a video is processing or live.
 const POLL_INTERVAL_MS = 3000
 
 export default function App() {
   const watchId = useWatchId()
+  const onDashboard = usePathname() === dashboardUrl
 
   const [videos, setVideos] = useState<Video[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -51,8 +53,10 @@ export default function App() {
   const watching = watchId ? videos?.find((v) => v.id === watchId) : undefined
 
   useEffect(() => {
-    document.title = watching ? `${watching.title} - Flick` : 'Flick'
-  }, [watching])
+    if (watching) document.title = `${watching.title} - Flick`
+    else if (onDashboard) document.title = 'Creator Dashboard - Flick'
+    else document.title = 'Flick'
+  }, [watching, onDashboard])
 
   // Draws the list on the home page: an error, loading placeholders, or the
   // videos.
@@ -90,16 +94,28 @@ export default function App() {
     return <WatchPage video={watching} others={videos.filter((v) => v.id !== watching.id)} />
   }
 
-  return (
-    <main className="container page">
-      {watchId ? (
-        renderWatch()
-      ) : (
-        <>
-          <UploadForm onUploaded={reload} />
-          {renderVideos()}
-        </>
-      )}
-    </main>
-  )
+  // Draws the home page: a link to the dashboard, the upload form, and the
+  // videos.
+  function renderHome() {
+    return (
+      <>
+        <div className="home-header">
+          <Link href={dashboardUrl} className="button button-tonal">
+            Creator Dashboard
+          </Link>
+        </div>
+        <UploadForm onUploaded={reload} />
+        {renderVideos()}
+      </>
+    )
+  }
+
+  // Picks the page to draw from the address.
+  function renderPage() {
+    if (watchId) return renderWatch()
+    if (onDashboard) return <Dashboard />
+    return renderHome()
+  }
+
+  return <main className="container page">{renderPage()}</main>
 }

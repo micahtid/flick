@@ -21,6 +21,16 @@ export type Video = {
   created_at: string
 }
 
+// One video's numbers, in the shape the API sends them for the creator
+// dashboard. watch_seconds is the total time everyone has spent watching it.
+export type VideoStats = {
+  id: string
+  title: string
+  views: number
+  watch_seconds: number
+  created_at: string
+}
+
 // The address of one of a video's files, made by a worker or, for a stream,
 // by the ingest service.
 function hlsFileUrl(id: string, name: string): string {
@@ -56,14 +66,46 @@ export function chatUrl(id: string): string {
   return `${scheme}//${window.location.host}/api/chat/${encodeURIComponent(id)}`
 }
 
-// Fetches every video, newest first. Throws an Error if the request fails.
-export async function listVideos(): Promise<Video[]> {
-  const res = await fetch('/api/videos')
+// Fetches JSON from the API. Throws an Error if the request fails.
+async function getJSON<T>(url: string): Promise<T> {
+  const res = await fetch(url)
   // res.ok is true for success codes (200 to 299).
   if (!res.ok) {
     throw new Error(failureMessage(res.status, await res.text()))
   }
   return res.json()
+}
+
+// Fetches every video, newest first.
+export function listVideos(): Promise<Video[]> {
+  return getJSON('/api/videos')
+}
+
+// Fetches every video's views and watch time, newest first.
+export function listStats(): Promise<VideoStats[]> {
+  return getJSON('/api/stats')
+}
+
+// Tells the API that a video started playing.
+export function reportView(id: string) {
+  report(id, 'view')
+}
+
+// Tells the API how many seconds of a video were just watched.
+export function reportWatch(id: string, seconds: number) {
+  report(id, 'watch', { seconds })
+}
+
+// Sends a view or watch time to the API. keepalive lets the request finish
+// even if the viewer is leaving the page. Counting views isn't worth
+// bothering the viewer about, so a failure is ignored.
+function report(id: string, kind: 'view' | 'watch', body?: object) {
+  fetch(`/api/videos/${encodeURIComponent(id)}/${kind}`, {
+    method: 'POST',
+    keepalive: true,
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  }).catch(() => {})
 }
 
 // Uploads a video and returns it as saved. It uses XMLHttpRequest instead of
