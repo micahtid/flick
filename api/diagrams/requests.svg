@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 548" width="960" height="548" role="img" aria-label="How the API handles each request">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 1076" width="960" height="1076" role="img" aria-label="How the API handles each request">
   <style>
     text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 14px; fill: #1f2328; text-anchor: middle; dominant-baseline: central; }
     .sub { font-size: 12px; fill: #57606a; }
@@ -10,6 +10,10 @@
     .worker { fill: #d3efdc; } .p-worker { fill: #f0f9f3; }
     .storage { fill: #ffd8e4; } .p-storage { fill: #fff3f7; }
     .chunk { fill: #fff1b8; } .p-chunk { fill: #fffbe6; }
+    .cache { fill: #e6f2c2; } .p-cache { fill: #f8fbea; }
+    .ingest { fill: #f3d7f1; } .p-ingest { fill: #fcf1fb; }
+    .metrics { fill: #cdeff7; } .p-metrics { fill: #eefafd; }
+    .monitoring { fill: #eadfcf; } .p-monitoring { fill: #f9f5ef; }
     .ext { fill: #eaeef2; } .p-ext { fill: #f6f8fa; }
     .ln { fill: none; stroke: #6e7781; stroke-width: 1.6; stroke-linecap: round; }
     .head { fill: #6e7781; }
@@ -23,6 +27,10 @@
       .worker { fill: #326343; } .p-worker { fill: #253a2d; }
       .storage { fill: #7a3a52; } .p-storage { fill: #3d2630; }
       .chunk { fill: #6b5a1e; } .p-chunk { fill: #3a3320; }
+      .cache { fill: #55612a; } .p-cache { fill: #33391f; }
+      .ingest { fill: #66395f; } .p-ingest { fill: #39263a; }
+      .metrics { fill: #2b5a67; } .p-metrics { fill: #22363c; }
+      .monitoring { fill: #5e4c36; } .p-monitoring { fill: #362e25; }
       .ext { fill: #3d444d; } .p-ext { fill: #30363d; }
       .ln { stroke: #a0a8b0; }
       .head { fill: #a0a8b0; }
@@ -40,10 +48,10 @@
   <path class="ln" d="M692 54 H756" marker-end="url(#a)"/>
   <path class="ln" d="M204 230 H268" marker-end="url(#a)"/>
   <path class="ln" d="M448 142 H512" marker-end="url(#a)"/>
-  <path class="ln" d="M692 142 H756" marker-end="url(#a)"/>
   <path class="ln" d="M448 230 H512" marker-end="url(#a)"/>
-  <path class="ln" d="M692 230 H756" marker-end="url(#a)"/>
   <path class="ln" d="M448 318 H512" marker-end="url(#a)"/>
+  <path class="ln" d="M692 142 H756" marker-end="url(#a)"/>
+  <path class="ln" d="M692 230 H756" marker-end="url(#a)"/>
   <path class="ln" d="M692 318 H756" marker-end="url(#a)"/>
   <path class="ln" d="M204 406 H268" marker-end="url(#a)"/>
   <path class="ln" d="M448 406 H512" marker-end="url(#a)"/>
@@ -51,6 +59,20 @@
   <path class="ln" d="M204 494 H268" marker-end="url(#a)"/>
   <path class="ln" d="M448 494 H512" marker-end="url(#a)"/>
   <path class="ln" d="M692 494 H756" marker-end="url(#a)"/>
+  <path class="ln" d="M204 626 H268" marker-end="url(#a)"/>
+  <path class="ln" d="M448 582 H512" marker-end="url(#a)"/>
+  <path class="ln" d="M692 582 H756" marker-end="url(#a)"/>
+  <path class="ln" d="M448 670 H512" marker-end="url(#a)"/>
+  <path class="ln" d="M692 670 H756" marker-end="url(#a)"/>
+  <path class="ln" d="M204 758 H268" marker-end="url(#a)"/>
+  <path class="ln" d="M448 758 H512" marker-end="url(#a)"/>
+  <path class="ln" d="M204 846 H268" marker-end="url(#a)"/>
+  <path class="ln" d="M448 846 H512" marker-end="url(#a)"/>
+  <path class="ln" d="M692 802 H756" marker-end="url(#a)"/>
+  <path class="ln" d="M204 934 H268" marker-end="url(#a)"/>
+  <path class="ln" d="M448 934 H512" marker-end="url(#a)"/>
+  <path class="ln" d="M692 934 H756" marker-end="url(#a)"/>
+  <path class="ln" d="M204 1022 H268" marker-end="url(#a)"/>
 
   <!-- Boxes -->
   <rect class="ext" x="24" y="24" width="180" height="60" rx="10"/><text x="114" y="54">GET /files/hls/...</text>
@@ -63,12 +85,26 @@
   <rect class="api" x="512" y="200" width="180" height="60" rx="10"/><text x="602" y="221">queueClient.Add()</text><text class="sub" x="602" y="239">queue.go</text>
   <rect class="queue" x="756" y="200" width="180" height="60" rx="10"/><text x="846" y="221">Job Queue</text><text class="sub" x="846" y="239">queue/</text>
   <rect class="api" x="512" y="288" width="180" height="60" rx="10"/><text x="602" y="309">videoStore.Create()</text><text class="sub" x="602" y="327">db.go</text>
-  <rect class="ext" x="756" y="288" width="180" height="148" rx="10"/><text x="846" y="353">Postgres</text><text class="sub" x="846" y="371">videos and files tables</text>
+  <rect class="ext" x="756" y="288" width="180" height="324" rx="10"/><text x="846" y="441">Postgres</text><text class="sub" x="846" y="459">videos and files tables</text>
   <rect class="ext" x="24" y="376" width="180" height="60" rx="10"/><text x="114" y="406">GET /videos</text>
   <rect class="api" x="268" y="376" width="180" height="60" rx="10"/><text x="358" y="397">listVideos()</text><text class="sub" x="358" y="415">videos.go</text>
   <rect class="api" x="512" y="376" width="180" height="60" rx="10"/><text x="602" y="397">videoStore.List()</text><text class="sub" x="602" y="415">db.go</text>
-  <rect class="ext" x="24" y="464" width="180" height="60" rx="10"/><text x="114" y="494">GET /chat/&lt;id&gt;</text>
-  <rect class="api" x="268" y="464" width="180" height="60" rx="10"/><text x="358" y="485">joinChat()</text><text class="sub" x="358" y="503">chat.go</text>
-  <rect class="api" x="512" y="464" width="180" height="60" rx="10"/><text x="602" y="485">redisHub</text><text class="sub" x="602" y="503">chat.go</text>
-  <rect class="ext" x="756" y="464" width="180" height="60" rx="10"/><text x="846" y="485">Redis</text><text class="sub" x="846" y="503">chat:&lt;id&gt; channels</text>
+  <rect class="ext" x="24" y="464" width="180" height="60" rx="10"/><text x="114" y="494">GET /stats</text>
+  <rect class="api" x="268" y="464" width="180" height="60" rx="10"/><text x="358" y="485">getStats()</text><text class="sub" x="358" y="503">views.go</text>
+  <rect class="api" x="512" y="464" width="180" height="60" rx="10"/><text x="602" y="485">videoStore.Stats()</text><text class="sub" x="602" y="503">db.go</text>
+  <rect class="ext" x="24" y="552" width="180" height="148" rx="10"/><text x="114" y="626">Every Minute</text>
+  <rect class="api" x="268" y="552" width="180" height="148" rx="10"/><text x="358" y="617">flushLoop()</text><text class="sub" x="358" y="635">views.go</text>
+  <rect class="api" x="512" y="552" width="180" height="60" rx="10"/><text x="602" y="573">videoStore.AddCounts()</text><text class="sub" x="602" y="591">db.go</text>
+  <rect class="api" x="512" y="640" width="180" height="60" rx="10"/><text x="602" y="661">redisCounter.Take()</text><text class="sub" x="602" y="679">views.go</text>
+  <rect class="ext" x="756" y="640" width="180" height="324" rx="10"/><text x="846" y="793">Redis</text><text class="sub" x="846" y="811">chat channels and view counts</text>
+  <rect class="ext" x="24" y="728" width="180" height="60" rx="10"/><text x="114" y="758">POST /videos/&lt;id&gt;/view</text>
+  <rect class="api" x="268" y="728" width="180" height="60" rx="10"/><text x="358" y="749">addView()</text><text class="sub" x="358" y="767">views.go</text>
+  <rect class="ext" x="24" y="816" width="180" height="60" rx="10"/><text x="114" y="846">POST /videos/&lt;id&gt;/watch</text>
+  <rect class="api" x="268" y="816" width="180" height="60" rx="10"/><text x="358" y="837">addWatch()</text><text class="sub" x="358" y="855">views.go</text>
+  <rect class="api" x="512" y="728" width="180" height="148" rx="10"/><text x="602" y="793">redisCounter.Add()</text><text class="sub" x="602" y="811">views.go</text>
+  <rect class="ext" x="24" y="904" width="180" height="60" rx="10"/><text x="114" y="934">GET /chat/&lt;id&gt;</text>
+  <rect class="api" x="268" y="904" width="180" height="60" rx="10"/><text x="358" y="925">joinChat()</text><text class="sub" x="358" y="943">chat.go</text>
+  <rect class="api" x="512" y="904" width="180" height="60" rx="10"/><text x="602" y="925">redisHub</text><text class="sub" x="602" y="943">chat.go</text>
+  <rect class="ext" x="24" y="992" width="180" height="60" rx="10"/><text x="114" y="1022">GET /metrics</text>
+  <rect class="metrics" x="268" y="992" width="180" height="60" rx="10"/><text x="358" y="1013">metrics.Handler()</text><text class="sub" x="358" y="1031">pkg/metrics</text>
 </svg>

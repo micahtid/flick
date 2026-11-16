@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1438 1168" width="1438" height="1168" role="img" aria-label="How Flick&#x27;s folders and files connect">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1438 1368" width="1438" height="1368" role="img" aria-label="How Flick&#x27;s folders and files connect">
   <style>
     text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 14px; fill: #1f2328; text-anchor: middle; dominant-baseline: central; }
     .sub { font-size: 12px; fill: #57606a; }
@@ -12,6 +12,8 @@
     .chunk { fill: #fff1b8; } .p-chunk { fill: #fffbe6; }
     .cache { fill: #e6f2c2; } .p-cache { fill: #f8fbea; }
     .ingest { fill: #f3d7f1; } .p-ingest { fill: #fcf1fb; }
+    .metrics { fill: #cdeff7; } .p-metrics { fill: #eefafd; }
+    .monitoring { fill: #eadfcf; } .p-monitoring { fill: #f9f5ef; }
     .ext { fill: #eaeef2; } .p-ext { fill: #f6f8fa; }
     .ln { fill: none; stroke: #6e7781; stroke-width: 1.6; stroke-linecap: round; }
     .head { fill: #6e7781; }
@@ -27,6 +29,8 @@
       .chunk { fill: #6b5a1e; } .p-chunk { fill: #3a3320; }
       .cache { fill: #55612a; } .p-cache { fill: #33391f; }
       .ingest { fill: #66395f; } .p-ingest { fill: #39263a; }
+      .metrics { fill: #2b5a67; } .p-metrics { fill: #22363c; }
+      .monitoring { fill: #5e4c36; } .p-monitoring { fill: #362e25; }
       .ext { fill: #3d444d; } .p-ext { fill: #30363d; }
       .ln { stroke: #a0a8b0; }
       .head { fill: #a0a8b0; }
@@ -48,6 +52,8 @@
   <rect class="p-storage" x="531" y="224" width="246" height="136" rx="14"/><text class="folder" x="549" y="248">storage/</text>
   <rect class="p-chunk" x="555" y="424" width="198" height="332" rx="14"/><text class="folder" x="573" y="448">pkg/chunk/</text>
   <rect class="p-ingest" x="894" y="424" width="520" height="136" rx="14"/><text class="folder" x="912" y="448">ingest/</text>
+  <rect class="p-metrics" x="24" y="1208" width="390" height="136" rx="14"/><text class="folder" x="42" y="1232">pkg/metrics/</text>
+  <rect class="p-monitoring" x="555" y="1208" width="859" height="136" rx="14"/><text class="folder" x="573" y="1232">monitoring/</text>
 
   <!-- Lines. Each one is a single straight segment. -->
   <path class="ln" d="M215 132 V276" marker-end="url(#a)"/>
@@ -73,6 +79,8 @@
   <path class="ln" d="M219 876 V940" marker-end="url(#a)"/>
   <path class="ln" d="M654 996 V1088" marker-end="url(#a)"/>
   <path class="ln" d="M1182 876 V1088" marker-end="url(#a)"/>
+  <path class="ln" d="M579 1288 H390" marker-end="url(#a)"/>
+  <path class="ln" d="M1090 1288 H879" marker-end="url(#a)"/>
   <text class="sub" x="225" y="192" style="text-anchor: start">HTTP</text>
   <text class="sub" x="140" y="392" style="text-anchor: end">/api</text>
   <text class="sub" x="298" y="392" style="text-anchor: start">/hls</text>
@@ -89,12 +97,14 @@
   <text class="sub" x="229" y="908" style="text-anchor: start">Chat Messages</text>
   <text class="sub" x="664" y="1056" style="text-anchor: start">jobs Table</text>
   <text class="sub" x="1172" y="996" style="text-anchor: end">Marks Videos Ready</text>
+  <text class="sub" x="484.5" y="1274">Reads /metrics</text>
+  <text class="sub" x="984.5" y="1274">Queries</text>
 
   <!-- Boxes -->
-  <rect class="web" x="115" y="76" width="200" height="56" rx="10"/><text x="215" y="95">api.ts, Player.tsx</text><text class="sub" x="215" y="113">Uploads, plays and chats.</text>
+  <rect class="web" x="115" y="76" width="200" height="56" rx="10"/><text x="215" y="95">api.ts, Player.tsx</text><text class="sub" x="215" y="113">Uploads, plays, chats and counts.</text>
   <rect class="nginx" x="115" y="276" width="200" height="56" rx="10"/><text x="215" y="295">nginx.conf</text><text class="sub" x="215" y="313">Forwards /api and /hls.</text>
   <rect class="cache" x="213" y="476" width="150" height="56" rx="10"/><text x="288" y="495">lru.go, hls.go</text><text class="sub" x="288" y="513">Keeps recent segments.</text>
-  <rect class="api" x="48" y="676" width="342" height="56" rx="10"/><text x="219" y="695">videos.go</text><text class="sub" x="219" y="713">Handles each request.</text>
+  <rect class="api" x="48" y="676" width="342" height="56" rx="10"/><text x="219" y="695">videos.go, views.go</text><text class="sub" x="219" y="713">Handles each request.</text>
   <rect class="api" x="48" y="820" width="102" height="56" rx="10"/><text x="99" y="839">db.go</text><text class="sub" x="99" y="857">videoStore</text>
   <rect class="api" x="168" y="820" width="102" height="56" rx="10"/><text x="219" y="839">chat.go</text><text class="sub" x="219" y="857">redisHub</text>
   <rect class="api" x="288" y="820" width="102" height="56" rx="10"/><text x="339" y="839">queue.go</text><text class="sub" x="339" y="857">queueClient</text>
@@ -110,4 +120,7 @@
   <rect class="ingest" x="1282" y="476" width="108" height="56" rx="10"/><text x="1336" y="495">db.go</text><text class="sub" x="1336" y="513">videoStore</text>
   <rect class="ext" x="150" y="940" width="138" height="56" rx="10"/><text x="219" y="959">Redis</text><text class="sub" x="219" y="977">chat:&lt;id&gt; channels</text>
   <rect class="ext" x="48" y="1088" width="1342" height="56" rx="10"/><text x="719" y="1107">Postgres</text><text class="sub" x="719" y="1125">videos, jobs and files tables</text>
+  <rect class="metrics" x="48" y="1260" width="342" height="56" rx="10"/><text x="219" y="1279">metrics.go</text><text class="sub" x="219" y="1297">Counts every request, in every service.</text>
+  <rect class="monitoring" x="579" y="1260" width="300" height="56" rx="10"/><text x="729" y="1279">prometheus.yml</text><text class="sub" x="729" y="1297">Prometheus collects every 15 seconds.</text>
+  <rect class="monitoring" x="1090" y="1260" width="300" height="56" rx="10"/><text x="1240" y="1279">dashboards/flick.json</text><text class="sub" x="1240" y="1297">Grafana draws the dashboard.</text>
 </svg>

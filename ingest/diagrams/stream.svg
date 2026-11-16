@@ -12,6 +12,8 @@
     .chunk { fill: #fff1b8; } .p-chunk { fill: #fffbe6; }
     .cache { fill: #e6f2c2; } .p-cache { fill: #f8fbea; }
     .ingest { fill: #f3d7f1; } .p-ingest { fill: #fcf1fb; }
+    .metrics { fill: #cdeff7; } .p-metrics { fill: #eefafd; }
+    .monitoring { fill: #eadfcf; } .p-monitoring { fill: #f9f5ef; }
     .ext { fill: #eaeef2; } .p-ext { fill: #f6f8fa; }
     .ln { fill: none; stroke: #6e7781; stroke-width: 1.6; stroke-linecap: round; }
     .head { fill: #6e7781; }
@@ -27,6 +29,8 @@
       .chunk { fill: #6b5a1e; } .p-chunk { fill: #3a3320; }
       .cache { fill: #55612a; } .p-cache { fill: #33391f; }
       .ingest { fill: #66395f; } .p-ingest { fill: #39263a; }
+      .metrics { fill: #2b5a67; } .p-metrics { fill: #22363c; }
+      .monitoring { fill: #5e4c36; } .p-monitoring { fill: #362e25; }
       .ext { fill: #3d444d; } .p-ext { fill: #30363d; }
       .ln { stroke: #a0a8b0; }
       .head { fill: #a0a8b0; }

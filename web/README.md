@@ -1,6 +1,6 @@
 # Web
 
-Uploads videos, lists them, and plays them with adaptive streaming. It also plays live streams, with a chat beside each one. It's built with React.
+Uploads videos, lists them, and plays them with adaptive streaming. It also plays live streams, with a chat beside each one, and shows creators how many people watch each video. It's built with React.
 
 ## Startup
 
@@ -14,12 +14,17 @@ Uploads videos, lists them, and plays them with adaptive streaming. It also play
 
 ![How the site joins a stream's chat](diagrams/chat.svg)
 
+## Creator Dashboard
+
+![How the site shows the creator dashboard](diagrams/dashboard.svg)
+
 ## Pages
 
 | Page | Address | Description |
 | --- | --- | --- |
 | Home | `/` | Shows the upload form and every video, newest first. |
 | Watch | `/watch?v=<id>` | Plays one video, with the other videos beside it. A live stream has its chat beside it instead. |
+| Creator Dashboard | `/dashboard` | Shows every video's views and watch time in hours and minutes, newest first. |
 
 ## Server Requests
 
@@ -31,6 +36,9 @@ Uploads videos, lists them, and plays them with adaptive streaming. It also play
 | `GET /hls/<id>/live.m3u8` | Starts a live stream. hls.js fetches it again every few seconds to find new segments. |
 | `GET /hls/<id>/poster.jpg` | Shows a still image as the thumbnail and before playback starts. |
 | `GET /api/chat/<id>` | Opens a WebSocket to a live stream's chat. If it drops, it's opened again 3 seconds later. |
+| `POST /api/videos/<id>/view` | Counts a view, the first time a video starts playing. |
+| `POST /api/videos/<id>/watch` | Adds watch time, after every 30 seconds of playback, and with whatever is left when the viewer leaves or closes the tab. A failure is ignored. |
+| `GET /api/stats` | Lists every video's views and watch time for the dashboard. Sent again every 30 seconds. |
 
 ## Development
 

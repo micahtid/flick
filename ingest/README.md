@@ -37,6 +37,7 @@ Takes live streams from OBS, converts each one to HLS as it comes in, and saves 
 | Variable | Default | Description |
 | --- | --- | --- |
 | `STORAGE_NODES` | `http://node1:9001,http://node2:9002,http://node3:9003` | Where the storage nodes are, separated by commas. |
+| `METRICS_PORT` | `8083` | The port Prometheus reads `/metrics` from. The service only speaks RTMP otherwise, so this small server is its only HTTP. |
 | `DATABASE_URL` | Required | Where Postgres is, such as `postgres://postgres:flick@db:5432/postgres?sslmode=disable`. |
 
 ## Development

@@ -33,7 +33,7 @@ Claims jobs from the queue, converts each upload to HLS in 1080p, 720p and 360p,
 | Case | Description |
 | --- | --- |
 | No Job Is Waiting | Waits 2 seconds, then asks again. |
-| A Step Fails | Leaves the job unfinished. The queue hands it out again after 5 minutes. |
+| A Step Fails | Leaves the job unfinished, and counts it in `jobs_failed_total`. The queue hands it out again after 5 minutes. |
 | The Worker Is Stopped | Stops FFmpeg. `master.m3u8` isn't saved, so the video stays `processing`. The queue hands the job out again after 5 minutes, and the next try saves every file again. |
 | The Upload Is Smaller Than a Quality | Skips any quality taller than the upload. A 720p upload gets 720p and 360p. An upload under 360p gets one quality at its own height. |
 
@@ -42,6 +42,7 @@ Claims jobs from the queue, converts each upload to HLS in 1080p, 720p and 360p,
 | Variable | Default | Description |
 | --- | --- | --- |
 | `QUEUE_URL` | `http://queue:8081` | Where the queue is. |
+| `METRICS_PORT` | `8090` | The port Prometheus reads `/metrics` from. It counts finished jobs as `jobs_done_total` and failed ones as `jobs_failed_total`. |
 | `STORAGE_NODES` | `http://node1:9001,http://node2:9002,http://node3:9003` | Where the storage nodes are, separated by commas. |
 | `DATABASE_URL` | Required | Where Postgres is, such as `postgres://postgres:flick@db:5432/postgres?sslmode=disable`. |
 

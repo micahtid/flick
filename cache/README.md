@@ -15,6 +15,7 @@ Keeps recently watched segments in memory, so a popular video's segments are fet
 | `GET /hls/<id>/<name>.ts` | `200` with the segment, from memory on a hit or from the API on a miss. `404` if there's no such segment, and `502` if the API fails. |
 | `GET /hls/<id>/<file>` | Any other file, such as a playlist, passes straight through to the API, which sends the reply. |
 | `GET /stats` | `200` with the hits, the misses and the hit rate, such as `{"hit_rate":0.95,"hits":95,"misses":5}`. Only segments are counted. |
+| `GET /metrics` | `200` with the cache's numbers for Prometheus, including the same hits and misses as `cache_hits_total` and `cache_misses_total`. |
 
 ## Special Cases
 

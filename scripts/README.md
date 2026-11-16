@@ -24,4 +24,5 @@ The chaos test proves that no chunk is lost while nodes keep failing.
 | --- | --- |
 | 1 | Run `sh scripts/chaos.sh`. |
 | 2 | While it runs, keep uploading videos in a second terminal, such as with `while true; do curl -F file=@test.mp4 -F title=Test localhost/api/videos; sleep 8; done`. |
-| 3 | When it finishes, wait a few seconds for the repair loop, then run `sh scripts/check.sh`. Every chunk should have 3 copies. |
+| 3 | Watch the **Storage Nodes Up** and **Raft Leader** panels in Grafana, at http://localhost:3001. Each stopped node turns red, and if it was the leader, another node takes over within a few seconds. |
+| 4 | When it finishes, wait a few seconds for the repair loop, then run `sh scripts/check.sh`. Every chunk should have 3 copies. |

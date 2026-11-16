@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 936 196" width="936" height="196" role="img" aria-label="How the site starts">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 936 284" width="936" height="284" role="img" aria-label="How the site starts">
   <style>
     text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 14px; fill: #1f2328; text-anchor: middle; dominant-baseline: central; }
     .sub { font-size: 12px; fill: #57606a; }
@@ -8,6 +8,12 @@
     .api { fill: #d8e6ff; } .p-api { fill: #f2f6ff; }
     .queue { fill: #e5dbff; } .p-queue { fill: #f7f3ff; }
     .worker { fill: #d3efdc; } .p-worker { fill: #f0f9f3; }
+    .storage { fill: #ffd8e4; } .p-storage { fill: #fff3f7; }
+    .chunk { fill: #fff1b8; } .p-chunk { fill: #fffbe6; }
+    .cache { fill: #e6f2c2; } .p-cache { fill: #f8fbea; }
+    .ingest { fill: #f3d7f1; } .p-ingest { fill: #fcf1fb; }
+    .metrics { fill: #cdeff7; } .p-metrics { fill: #eefafd; }
+    .monitoring { fill: #eadfcf; } .p-monitoring { fill: #f9f5ef; }
     .ext { fill: #eaeef2; } .p-ext { fill: #f6f8fa; }
     .ln { fill: none; stroke: #6e7781; stroke-width: 1.6; stroke-linecap: round; }
     .head { fill: #6e7781; }
@@ -19,6 +25,12 @@
       .api { fill: #34507e; } .p-api { fill: #263147; }
       .queue { fill: #4f4180; } .p-queue { fill: #312a47; }
       .worker { fill: #326343; } .p-worker { fill: #253a2d; }
+      .storage { fill: #7a3a52; } .p-storage { fill: #3d2630; }
+      .chunk { fill: #6b5a1e; } .p-chunk { fill: #3a3320; }
+      .cache { fill: #55612a; } .p-cache { fill: #33391f; }
+      .ingest { fill: #66395f; } .p-ingest { fill: #39263a; }
+      .metrics { fill: #2b5a67; } .p-metrics { fill: #22363c; }
+      .monitoring { fill: #5e4c36; } .p-monitoring { fill: #362e25; }
       .ext { fill: #3d444d; } .p-ext { fill: #30363d; }
       .ln { stroke: #a0a8b0; }
       .head { fill: #a0a8b0; }
@@ -31,17 +43,20 @@
   </defs>
 
   <!-- Lines. Each one is a single straight segment. -->
-  <path class="ln" d="M204 98 H260" marker-end="url(#a)"/>
+  <path class="ln" d="M204 142 H260" marker-end="url(#a)"/>
   <path class="ln" d="M440 54 H496" marker-end="url(#a)"/>
   <path class="ln" d="M440 142 H496" marker-end="url(#a)"/>
+  <path class="ln" d="M440 230 H496" marker-end="url(#a)"/>
   <path class="ln" d="M676 54 H732" marker-end="url(#a)"/>
   <path class="ln" d="M676 142 H732" marker-end="url(#a)"/>
+  <path class="ln" d="M676 230 H732" marker-end="url(#a)"/>
 
   <!-- Boxes -->
-  <rect class="web" x="24" y="24" width="180" height="148" rx="10"/><text x="114" y="89">createRoot()</text><text class="sub" x="114" y="107">main.tsx</text>
-  <rect class="web" x="260" y="24" width="180" height="148" rx="10"/><text x="350" y="89">App()</text><text class="sub" x="350" y="107">App.tsx</text>
+  <rect class="web" x="24" y="24" width="180" height="236" rx="10"/><text x="114" y="133">createRoot()</text><text class="sub" x="114" y="151">main.tsx</text>
+  <rect class="web" x="260" y="24" width="180" height="236" rx="10"/><text x="350" y="133">App()</text><text class="sub" x="350" y="151">App.tsx</text>
   <rect class="web" x="496" y="24" width="180" height="60" rx="10"/><text x="586" y="45">listVideos()</text><text class="sub" x="586" y="63">api.ts</text>
   <rect class="web" x="496" y="112" width="180" height="60" rx="10"/><text x="586" y="133">useWatchId()</text><text class="sub" x="586" y="151">router.ts</text>
+  <rect class="web" x="496" y="200" width="180" height="60" rx="10"/><text x="586" y="221">usePathname()</text><text class="sub" x="586" y="239">router.ts</text>
   <rect class="ext" x="732" y="24" width="180" height="60" rx="10"/><text x="822" y="45">GET /api/videos</text><text class="sub" x="822" y="63">Every 3 s Until Ready</text>
-  <rect class="web" x="732" y="112" width="180" height="60" rx="10"/><text x="822" y="133">Home or Watch Page</text><text class="sub" x="822" y="151">VideoGrid or WatchPage</text>
+  <rect class="web" x="732" y="112" width="180" height="148" rx="10"/><text x="822" y="177">Current Page</text><text class="sub" x="822" y="195">Home, Watch or Dashboard</text>
 </svg>

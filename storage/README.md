@@ -17,6 +17,7 @@ Saves chunks of files on its own disk and hands them back. Three nodes run at on
 | `POST /map` | `204` once most of the nodes (2 of 3) have saved the change. A follower replies `307` with the leader's address. `400` if the change is bad, and `503` while the nodes elect a leader. |
 | `GET /status` | `200` with the node's name, its Raft state and the leader, such as `{"id":"node2","leader":"node1","state":"Follower"}`. |
 | `GET /map/<id>` | `200` with the nodes that hold the chunk, such as `["http://node1:9001","http://node3:9003"]`. `404` if the map doesn't list the chunk. |
+| `GET /metrics` | `200` with the node's numbers for Prometheus, including `raft_is_leader` (1 on the leader, 0 on the others) and `chunks_stored`. |
 
 ## Repairs
 
