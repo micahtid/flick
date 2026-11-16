@@ -1,7 +1,6 @@
-# `docker compose up --build` starts the Phase 7 stack (db, api, queue,
-# worker, nginx, three storage nodes, the cache, Redis, and the ingest
-# service). Add `--scale worker=2` to run two workers.
-# `docker compose --profile full up --build` starts all 13 containers.
+# `docker compose up --build` starts all 13 containers: db, api, queue,
+# worker, nginx, three storage nodes, the cache, Redis, the ingest service,
+# Prometheus and Grafana. Add `--scale worker=2` to run two workers.
 
 # This lists the storage nodes. The API, the worker, the ingest service and
 # the nodes themselves all read it, so it's written once here.
@@ -10,7 +9,7 @@ x-storage-nodes: &storage-nodes http://node1:9001,http://node2:9002,http://node3
 # Every storage node is built the same way. Each one sets its own name,
 # published port and volume below, and node1 also sets BOOTSTRAP.
 x-storage: &storage
-  build: ./storage
+  build: { context: ., dockerfile: storage/Dockerfile }
 
 services:
   # These services start in Phase 1.
@@ -22,8 +21,8 @@ services:
     volumes:
       - dbdata:/var/lib/postgresql/data
 
-  # Phase 4 builds the API and worker from the project folder, so they can
-  # use the shared pkg/chunk package.
+  # Every Go service builds from the project folder, so it can use the shared
+  # packages in pkg/. Phase 4 added pkg/chunk, and Phase 8 added pkg/metrics.
   api:
     build: { context: ., dockerfile: api/Dockerfile }
     environment:
@@ -44,7 +43,7 @@ services:
 
   # These services start in Phase 2.
   queue:
-    build: ./queue
+    build: { context: ., dockerfile: queue/Dockerfile }
     environment:
       DATABASE_URL: postgres://postgres:flick@db:5432/postgres?sslmode=disable
     ports: ["8081:8081"]
@@ -52,6 +51,7 @@ services:
 
   # This is one service, so Compose can start as many copies as `--scale` asks for.
   # Each copy reads uploads from the storage nodes and saves HLS files back.
+  # Prometheus finds every copy, and reads its numbers on port 8090.
   worker:
     build: { context: ., dockerfile: worker/Dockerfile }
     environment:
@@ -82,7 +82,7 @@ services:
   # This service starts in Phase 6. It keeps up to CACHE_MAX_MB of segments
   # in memory, so changing the limit needs only a restart, not a rebuild.
   cache:
-    build: ./cache
+    build: { context: ., dockerfile: cache/Dockerfile }
     environment:
       API_URL: http://api:8080
       CACHE_MAX_MB: "500"
@@ -92,7 +92,7 @@ services:
   # These services start in Phase 7. Redis passes each chat message to every
   # copy of the API. The ingest service takes streams from OBS on port 1935,
   # and saves them on the storage nodes. It also needs the API, which creates
-  # the videos and files tables.
+  # the videos and files tables. Prometheus reads its numbers on port 8083.
   redis:
     image: redis:7
     ports: ["6379:6379"]
@@ -105,20 +105,22 @@ services:
     ports: ["1935:1935"]
     depends_on: [db, api, node1, node2, node3]
 
-  # These services are for later phases. They only start with `--profile full`.
+  # These services start in Phase 8. Prometheus reads /metrics from every
+  # service every 15 seconds. Grafana draws the numbers on a dashboard, which
+  # it loads from monitoring/grafana/ when it starts.
   prometheus:
     image: prom/prometheus:v3.5.0
-    profiles: [full]
     ports: ["9090:9090"]
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
 
   grafana:
     image: grafana/grafana:12.1.0
-    profiles: [full]
     ports: ["3001:3000"]  # Port 3000 is often taken on this machine, so use 3001.
     volumes:
       - ./monitoring/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
+      - ./monitoring/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on: [prometheus]
 
 volumes:

@@ -1,8 +1,38 @@
 global:
   scrape_interval: 15s
 
-# Each service is added here once it starts exposing /metrics in Phase 8.
+# Each job is one kind of service, so the dashboard can show each one apart.
+# Prometheus reads /metrics from every target in it.
 scrape_configs:
   - job_name: prometheus
     static_configs:
       - targets: ["localhost:9090"]
+
+  - job_name: api
+    static_configs:
+      - targets: ["api:8080"]
+
+  - job_name: queue
+    static_configs:
+      - targets: ["queue:8081"]
+
+  - job_name: cache
+    static_configs:
+      - targets: ["cache:8082"]
+
+  - job_name: ingest
+    static_configs:
+      - targets: ["ingest:8083"]
+
+  - job_name: storage
+    static_configs:
+      - targets: ["node1:9001", "node2:9002", "node3:9003"]
+
+  # Any number of workers can run, so they can't be listed by hand. Docker
+  # answers the name "worker" with the address of every copy, and Prometheus
+  # reads each one on port 8090.
+  - job_name: worker
+    dns_sd_configs:
+      - names: ["worker"]
+        type: A
+        port: 8090
