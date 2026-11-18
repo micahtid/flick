@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { errorMessage, listVideos, type Video } from './api'
 import { Dashboard } from './components/Dashboard'
 import { Link } from './components/Link'
-import { UploadForm } from './components/UploadForm'
+import { UploadDialog } from './components/UploadDialog'
 import { VideoGrid, VideoGridSkeleton } from './components/VideoGrid'
 import { WatchPage } from './components/WatchPage'
-import { dashboardUrl, usePathname, useWatchId } from './router'
+import { dashboardUrl, navigate, usePathname, useWatchId } from './router'
 
 // The list loads again this often while a video is processing or live.
 const POLL_INTERVAL_MS = 3000
@@ -16,6 +16,7 @@ export default function App() {
 
   const [videos, setVideos] = useState<Video[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [uploadOpen, setUploadOpen] = useState(false)
 
   const [reloadKey, setReloadKey] = useState(0)
   // Loads the video list again. Changing reloadKey runs the effect that
@@ -79,7 +80,7 @@ export default function App() {
   function renderVideos() {
     if (error && !videos) return renderLoadError()
     if (!videos) return <VideoGridSkeleton />
-    return <VideoGrid videos={videos} />
+    return <VideoGrid videos={videos} onUpload={() => setUploadOpen(true)} />
   }
 
   // Draws the watch page: the player, or a message if the video doesn't exist.
@@ -99,28 +100,46 @@ export default function App() {
     return <WatchPage video={watching} others={videos.filter((v) => v.id !== watching.id)} />
   }
 
-  // Draws the home page: a link to the dashboard, the upload form, and the
-  // videos.
-  function renderHome() {
-    return (
-      <>
-        <div className="home-header">
-          <Link href={dashboardUrl} className="button button-tonal">
-            Creator Dashboard
-          </Link>
-        </div>
-        <UploadForm onUploaded={reload} />
-        {renderVideos()}
-      </>
-    )
-  }
-
   // Picks the page to draw from the address.
   function renderPage() {
     if (watchId) return renderWatch()
     if (onDashboard) return <Dashboard />
-    return renderHome()
+    return renderVideos()
   }
 
-  return <main className="container page">{renderPage()}</main>
+  // Shows the new video on the home page once it has uploaded, with the list
+  // loaded again so it's there. On the home page already, it only reloads, so
+  // the back button doesn't gain an extra step.
+  function handleUploaded() {
+    if (watchId || onDashboard) navigate('/')
+    reload()
+  }
+
+  // Every page has the same header: the name, which links home, a button that
+  // opens the upload form, and a link to the creator dashboard.
+  return (
+    <>
+      <header className="header">
+        <nav className="container header-inner" aria-label="Main">
+          <Link href="/" className="wordmark">
+            Flick
+          </Link>
+          <div className="header-actions">
+            <button type="button" className="button button-tonal" onClick={() => setUploadOpen(true)}>
+              Upload
+            </button>
+            <Link
+              href={dashboardUrl}
+              className="button button-text"
+              aria-current={onDashboard ? 'page' : undefined}
+            >
+              Dashboard
+            </Link>
+          </div>
+        </nav>
+      </header>
+      <main className="container page">{renderPage()}</main>
+      <UploadDialog open={uploadOpen} onClose={() => setUploadOpen(false)} onUploaded={handleUploaded} />
+    </>
+  )
 }

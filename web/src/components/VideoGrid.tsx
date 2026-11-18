@@ -1,21 +1,25 @@
+import { MdOutlinePlayCircle } from 'react-icons/md'
 import type { Video } from '../api'
 import { watchUrl } from '../router'
 import { Link } from './Link'
 import { Thumbnail } from './Thumbnail'
 import { VideoMeta } from './VideoMeta'
-import { VideoIcon } from './icons'
 
 type Props = {
   videos: Video[]
+  onUpload: () => void
 }
 
-export function VideoGrid({ videos }: Props) {
+export function VideoGrid({ videos, onUpload }: Props) {
   if (videos.length === 0) {
     return (
       <div className="empty">
-        <VideoIcon size={64} />
+        <MdOutlinePlayCircle size={48} aria-hidden="true" />
         <h2>No Videos Yet</h2>
-        <p>Upload Your First Video Above to Get Started.</p>
+        <p>Upload Your First Video to Get Started.</p>
+        <button type="button" className="button button-filled" onClick={onUpload}>
+          Upload a Video
+        </button>
       </div>
     )
   }
@@ -35,7 +39,7 @@ export function VideoGrid({ videos }: Props) {
   )
 }
 
-const SKELETON_COUNT = 8
+const SKELETON_COUNT = 6
 
 export function VideoGridSkeleton() {
   return (

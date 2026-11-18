@@ -20,9 +20,11 @@ Uploads, lists and plays videos with adaptive streaming. It also plays live stre
 
 ## Pages
 
+Every page has the same header: the name, which links home, an Upload button and a link to the creator dashboard. The Upload button opens the upload form in a dialog. Once a video has uploaded, the dialog closes and the home page shows the new video.
+
 | Page | Address | Description |
 | --- | --- | --- |
-| Home | `/` | Shows the upload form and every video, newest first. |
+| Home | `/` | Shows every video, newest first. With no videos yet, it shows a button that opens the upload form. |
 | Watch | `/watch?v=<id>` | Plays one video, with the other videos beside it. A live stream has its chat beside it instead. A video still processing, or one that couldn't be converted, shows a message in place of the player. |
 | Creator Dashboard | `/dashboard` | Shows every video's views and watch time in hours and minutes, newest first. |
 

@@ -43,9 +43,7 @@ export function WatchPage({ video, others }: Props) {
           </Suspense>
         )}
         <h1 className="watch-title">{video.title}</h1>
-        <div className="description">
-          <strong>{formatDate(video.created_at)}</strong>
-        </div>
+        <p className="meta">{formatDate(video.created_at)}</p>
       </div>
 
       {/* A stream has its chat beside it. Any other video has the other

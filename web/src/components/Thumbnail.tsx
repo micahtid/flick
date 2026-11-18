@@ -1,6 +1,6 @@
+import { MdOutlineVideocam } from 'react-icons/md'
 import { posterUrl, type Video } from '../api'
 import { formatDuration } from '../format'
-import { VideoIcon } from './icons'
 
 type Props = {
   video: Video
@@ -13,7 +13,7 @@ export function Thumbnail({ video }: Props) {
   if (video.status === 'processing' || video.status === 'failed') {
     return (
       <div className="thumbnail thumbnail-pending">
-        <VideoIcon size={32} />
+        <MdOutlineVideocam size={32} aria-hidden="true" />
       </div>
     )
   }

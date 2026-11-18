@@ -88,12 +88,7 @@ export function Dashboard() {
 
   return (
     <div className="dashboard">
-      <div className="dashboard-header">
-        <h1 className="dashboard-title">Creator Dashboard</h1>
-        <Link href="/" className="button button-tonal">
-          Back to Home
-        </Link>
-      </div>
+      <h1 className="dashboard-title">Creator Dashboard</h1>
       {renderStats()}
     </div>
   )

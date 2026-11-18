@@ -5,6 +5,7 @@ type LinkProps = {
   href: string
   className?: string
   'aria-label'?: string
+  'aria-current'?: 'page'
   children: ReactNode
 }
 
